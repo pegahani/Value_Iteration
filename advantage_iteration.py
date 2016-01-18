@@ -25,6 +25,8 @@ prob = cplex.Cplex()
 prob.objective.set_sense(prob.objective.sense.minimize)
 
 class avi:
+    """ A class for the advantage based value iteration algorithm.
+        Embeds a VVMDP where vectors have dimension _d"""
 
     def __init__(self, _mdp, _lambda, _lambda_inequalities):
 
@@ -78,6 +80,8 @@ class avi:
         return self.mdp.initial_states_distribution()
 
     def update(self, dic, _u):
+        """ _u gives new (key,value) pairs to replace existing (if key exists) or add (else) in dic. If the value is itself
+            a mapping, the old value of key is supposed to be itself a dictionary which is recursively updated"""
         for k, v in _u.iteritems():
             if isinstance(v, collections.Mapping):
                 r = self.update(dic.get(k, {}), v)
@@ -87,7 +91,7 @@ class avi:
         return dic
 
     def clean_Points(self, _points):
-
+""" returns a copy of the dictionary _points where all (key, value) pairs having as value the vector \bar 0 are deleted """
         _dic = {}
         for key, value in _points.iteritems():
             if not np.all(value==0):
@@ -109,8 +113,8 @@ class avi:
         cluster_advantages_dic = {}
 
         Points_dic = self.clean_Points(_Points)
-        points_array = np.zeros((len(Points_dic), d), dtype= ftype)
-        dic_labels = {}
+        points_array = np.zeros((len(Points_dic), d), dtype= ftype) # array of vectors of size d (the advantages to cluster)
+        dic_labels = {} # array of (s,a) pairs. The index in points_array is also the index of the (s,a) pair providing this advantage.
 
         counter = 0
         for key, val in Points_dic.iteritems():
@@ -118,6 +122,7 @@ class avi:
             dic_labels[counter] = key
             counter += 1
 
+            # calls scipy.cluster.hierarchy 
         z = hac.linkage(points_array, method='complete', metric='cosine')
         tol = -1e-16
         z.real[z.real < tol] = 0.0
@@ -125,7 +130,7 @@ class avi:
 
         #pyplot.scatter(points_array[:,0], points_array[:,1], c=labels)
         #pyplot.show()
-
+        # rewrites the result of scipy.cluster.hierarchy in proper format: a dictionary of dictionaries
         for la in range(1, max(labels)+1):
             cluster_advantages_dic.setdefault(la, {})
 

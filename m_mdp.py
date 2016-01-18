@@ -14,6 +14,11 @@ except:
 
 ftype = np.float32
 
+""" Vectorial mdp where rewards are vectors of size d, and scalar values are obtained by scalar product of rewards or utility functions
+    with the lambda vector.
+    The initial distribution is equal probability for each initial state. Two functions value_iteration and policy_iteration compute solutions
+    with the help of callical algorithms.
+    Note that a policy is an array of (state, action) pairs (stationary) or (state, list-of-actions) pairs (non stationary)"""
 
 class VVMdp:
 
@@ -142,7 +147,7 @@ class VVMdp:
         return sum( (p*(Uvec[s2].dot(self.Lambda)) for s2,p in self.T(s,a)) )
 
     def value_iteration(self, epsilon=0.001,policy=None,k=100000,_Uvec=None, _stationary= True):
-        "Solving an MDP by value iteration. [Fig. 17.4]"
+        "Solving an MDP by value iteration. [Fig. 17.4]. Stops when the improvement is less than epsilon"
         n , na, d , Lambda = self.nstates , self.nactions, self.d , self.Lambda
         gamma , R , expected_scalar_utility = self.gamma , self.rewards , self.expected_scalar_utility
 
@@ -154,7 +159,7 @@ class VVMdp:
 
         Q    = np.zeros( na , dtype=ftype )
 
-        for t in range(k):
+        for t in range(k): # bounds the number of iterations if the break condition is too weak
 
             delta = 0.0
             for s in range(n):
@@ -171,8 +176,8 @@ class VVMdp:
                     act     = np.argmax(Q)
 
                 # Compute the update
-                _uvec[:] = R[s] + gamma * self.expected_vec_utility(s,act,Uvec)
-                _udot    = Lambda.dot(_uvec)
+                _uvec[:] = R[s] + gamma * self.expected_vec_utility(s,act,Uvec) # vectorial utility of the best action 
+                _udot    = Lambda.dot(_uvec) # its scalar utility
 
                 if policy != None:
                     delta = max(delta, l1distance(_uvec , Uvec[s]) )
@@ -193,7 +198,8 @@ class VVMdp:
 
 
     def policy_iteration(self,_Uvec=None):
-        "Solve an MDP by policy iteration [Fig. 17.7]"
+        "Solve an MDP by policy iteration [Fig. 17.7]. Tries 20 value iterations, then test if the policiy has changed
+        and stops if not."
         if _Uvec == None:
             U = np.zeros( (self.nstates,self.d) , dtype=ftype)
         else:
@@ -213,9 +219,10 @@ class VVMdp:
 
     def calculate_advantages_labels(self, _matrix_nd, _IsInitialDistribution, policy):
         """
-        This function get a matrix and finds all |S|x|A| advantages
-        :param _matrix_nd: a matrix of dimension nxd which is required to calculate advantages
+        This function get a matrix and finds all |S|x|A| advantages.  It is unused in the class (17/1/2016)
+        :param _matrix_nd: a matrix of dimension nxd which is required to calculate advantages (the actual vectorial utility function)
         :param _IsInitialDistribution: if initial distribution should be considered in advantage calculation or not
+        :param policy: unused
         :return: a dictionary of all advantages for our MDP. keys are pairs and values are advantages vectros
                 for instance: for state s and action a and d= 3 we have: (s,a): [0.1,0.2,0.4]
         """
@@ -239,7 +246,7 @@ class VVMdp:
 
         """
         This function receives an updated policy after considering advantages and the old nxd matrix
-        and it returns the updated matrix related to new policy
+        and it returns the updated matrix related to new policy. Unused in this class (17/1/2016)
         :param policy_p: a given policy
         :param _Uvec_nd: nxd matrix before implementing new policy
         :return: nxd matrix after improvement

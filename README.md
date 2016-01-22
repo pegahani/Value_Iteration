@@ -18,11 +18,12 @@ allow to retrieve the index from the readable form.
  **rev_transitions** is an inversed index (without actions).  **auto_probability** is the probability that (s,a) leads 
  to a. **startingStateInd** is the list of starting states.
   
- Each state has a vectorial value of size **d**. The **rewards** and the vectorial value function (set of 1 vectorial value
-  per state) are each represented as a _nstates x d_ matrix. 
+ Each state has a vectorial value of size **d**. The **rewards** and the vectorial value function (set of 1 vectorial 
+ value  per state) are each represented as a _nstates x d_ matrix. 
 
-  Policies, same as transitions, are _nstates x nactions_ arrays of vectors.  Now vectors are of size **nstates** and 
-  contain integer values smaller than **nactions**. 
+  Policies are vectors of _nstates_ size, and which  contain integer values smaller than **nactions** (the action 
+  associated to the state of this index). Policies may also contain a list of actions when *\_stationay* is positionned
+  (in value_iteration)
   
 ## The avi code
   Instance variables are **mdp**, **Lambda**, **Lambda_inequalities**, **query_counter**, **query_counter_with_advantages**.

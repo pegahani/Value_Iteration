@@ -10,6 +10,7 @@ import operator
 import scipy.cluster.hierarchy as hac
 import scipy.spatial.qhull
 from scipy.spatial import ConvexHull
+import sys
 
 try:
     from scipy.sparse import csr_matrix, dok_matrix
@@ -17,7 +18,9 @@ try:
     # noinspection PyPep8Naming
     from scipy.spatial.distance import cdist as linfDistance
 except:
-    from sparse_mat import dok_matrix, csr_matrix, l1distance
+    # from sparse_mat import dok_matrix, csr_matrix, l1distance
+    print "Problem with scipy"
+    sys.exit(1)
 
 ftype = np.float32
 
@@ -33,6 +36,8 @@ class avi:
     def __init__(self, _mdp, _lambda, _lambda_inequalities):
 
         self.mdp = _mdp
+        self.nstates = self.mdp.nstates
+        self.nactions = self.mdp.nactions
         self.Lambda = np.zeros(len(_lambda), dtype=ftype)
         self.Lambda[:] = _lambda
 
@@ -72,37 +77,15 @@ class avi:
         global prob
         # reset prob for the new example
 
-    def setStateAction(self):
-        self.n = self.mdp.nstates
-        self.na = self.mdp.nactions
+    # def setStateAction(self):
+    #     self.nstates = self.mdp.nstates
+    #     self.nactions = self.mdp.nactions
 
     def get_Lambda(self):
         return self.mdp.get_lambda()
 
     def get_initial_distribution(self):
         return self.mdp.initial_states_distribution()
-
-    def update(self, dic, _u):
-        """ Update a dictionary with new values. If the value is itself a mapping, the old value of key is supposed
-            to be itself a dictionary which is recursively updated
-            :param _u: new (key,value) pairs to replace existing (if key exists) or add (else) in dic
-            :param dic: the dictionary to update """
-        for k, v in _u.iteritems():
-            if isinstance(v, collections.Mapping):
-                r = self.update(dic.get(k, {}), v)
-                dic[k] = r
-            else:
-                dic[k] = _u[k]
-        return dic
-
-    def clean_Points(self, _points):
-        """ returns a copy of _points where all pairs having as value the vector \bar 0 are deleted
-        :param _points: a dictionary where values are vectors"""
-        _dic = {}
-        for key, value in _points.iteritems():
-            if not np.all(value == 0):
-                _dic[key] = value
-        return _dic
 
     def cluster_cosine_similarity(self, _Points, _cluster_error):
 
@@ -121,7 +104,7 @@ class avi:
         points_array = np.zeros((len(Points_dic), d),
                                 dtype=ftype)  # array of vectors of size d (the advantages to cluster)
         dic_labels = {}  # array of (s,a) pairs. The index in points_array is also the index of the (s,a) pair
-                        # providing this advantage.
+        # providing this advantage.
 
         counter = 0
         for key, val in Points_dic.iteritems():
@@ -142,58 +125,9 @@ class avi:
             cluster_advantages_dic.setdefault(la, {})
 
         for index, label in enumerate(labels):
-            self.update(cluster_advantages_dic, {label: {dic_labels[index]: points_array[index, :]}})
+            update(cluster_advantages_dic, {label: {dic_labels[index]: points_array[index, :]}})
 
         return cluster_advantages_dic
-
-    def make_convex_hull(self, _dic, _label):
-        # change dictionary types to array and extract lists without their (s,a) pairs
-        _points = []
-        _pairs = []
-
-        diclist = []
-        for key, val in _dic.iteritems():
-            diclist.append((key, val))
-
-        if _label == 'V':
-            for val in _dic.itervalues():
-                _points.append(np.float32(val[1]))
-        else:
-            for key, val in _dic.iteritems():
-                _points.append(np.float32(val))
-                _pairs.append(key)
-
-        _points = np.array(_points)
-
-        try:
-            hull = ConvexHull(_points)
-            hull_vertices = hull.vertices
-            hull_points = _points[hull_vertices, :]
-        except scipy.spatial.qhull.QhullError:
-            print 'convex hull is not available for label:', _label
-            hull_points = _points
-
-        return hull_points
-
-    def keys_of_value(self, dct, _vector):
-
-        """
-        :param dct: dictionary of (s,a) key and d-dimensional value vectors
-        :param _vector: a vector of dimension d
-        :return: the key of given dictionary
-        """
-
-        for k, v in dct.iteritems():
-            if (ftype(v) == ftype(_vector)).all():
-                del dct[k]
-                return k
-
-    def get_advantages(self, _clustered_results_val):
-
-        l = []
-        for val in _clustered_results_val.itervalues():
-            l.append(val)
-        return np.array(l)
 
     def justify_cluster(self, _vectors_list, _clustered_pairs_vectors):
         """
@@ -246,7 +180,7 @@ class avi:
         all related vectors in the same cluster after add beta.matrix_nd
         """
 
-        n = self.n
+        n = self.nstates
         d = len(self.Lambda)
 
         final_dic = {}
@@ -348,7 +282,8 @@ class avi:
 
     # *********************** comparison part **************************
 
-    def pareto_comparison(self, a, b):
+    @staticmethod
+    def pareto_comparison(a, b):
         a = np.array(a, dtype=ftype)
         b = np.array(b, dtype=ftype)
 
@@ -357,7 +292,8 @@ class avi:
 
         return all(a > b)
 
-    def cplex_K_dominance_check(self, _V_best, Q):
+    @staticmethod
+    def cplex_K_dominance_check(_V_best, Q):
 
         global prob
         _d = len(_V_best)
@@ -373,65 +309,81 @@ class avi:
 
         return True
 
-    def is_already_exist(self, inequality_list, new_constraint):
+    def already_exists(self, inequality_list, new_constraint):
         """
-
         :param inequality_list: list of inequalities. list of lists of dimension d+1
         :param new_constraint: new added constraint to list of inequalities of dimension d+1
-        :return: True if new added constraint is already exist in list of constraints for Lambda polytope
+        :return: True if new added constraint already exists in list of constraints for Lambda polytope
         """
         if new_constraint in inequality_list:
             return True
         else:
             for i in range(2 * self.mdp.d, len(inequality_list)):
 
-                devision_list = [np.float32(x / y) for x, y in zip(inequality_list[i], new_constraint)[1:]]
-                if all(x == devision_list[0] for x in devision_list):
+                division_list = [np.float32(x / y) for x, y in zip(inequality_list[i], new_constraint)[1:]]
+                if all(x == division_list[0] for x in division_list):
                     return True
 
         return False
 
-    def generate_noise(self, _d, _noise_deviation):
-        vector_noise = np.zeros(_d, dtype=ftype)
-        for i in range(_d):
-            vector_noise[i] = np.random.normal(0.0, _noise_deviation)
-
-        return vector_noise
-
     def Query_policies(self, _V_best, Q, noise):
+        """ simulates a user query, which must answer if _V_best is prefered to Q or the rverse
+        :param _V_best: one dimensional vector of size d
+        :param Q: same format as _V_best
+        :param noise: True or False
+        :return: the prefered vector.  As a side effect, adds a constraint representing the preference in prob.
+        """
 
         global prob
 
         bound = [0.0]
-        _d = len(_V_best[1])
+        _d = len(_V_best[1]) # why not self.mdp.d ?
 
         constr = []
         rhs = []
 
+        # to check : newconstraints is the same whether keep is True or not, while (due to c) the constraint added
+        # to prob is not the same, and in the noisy case it is not the same. An error on newconstraints ?
         if not noise:
-            if self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]):
-                new_constraints = bound + map(operator.sub, _V_best[1], Q[1])
-                if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
+            keep = (self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]))
+            new_constraints = bound + map(operator.sub, _V_best[1], Q[1])
+            if not self.already_exists(self.Lambda_inequalities, new_constraints):
+                if keep:
                     c = [(j, float(_V_best[1][j] - Q[1][j])) for j in range(0, _d)]
-                    constr.append(zip(*c))
-                    rhs.append(0.0)
-                    prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-
-                    self.Lambda_inequalities.append(new_constraints)
-
-                return _V_best
-
-            else:
-                new_constraints = bound + map(operator.sub, _V_best[1], Q[1])
-                if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
+                else:
                     c = [(j, float(Q[1][j] - _V_best[1][j])) for j in range(0, _d)]
-                    constr.append(zip(*c))
-                    rhs.append(0.0)
-                    prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-
-                    self.Lambda_inequalities.append(new_constraints)
-
+                constr.append(zip(*c))
+                rhs.append(0.0)
+                prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+                self.Lambda_inequalities.append(new_constraints)
+            if keep:
+                return _V_best
+            else:
                 return Q
+
+            # if self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]):
+            #     new_constraints = bound + map(operator.sub, _V_best[1], Q[1])
+            #     if not self.already_exists(self.Lambda_inequalities, new_constraints):
+            #         c = [(j, float(_V_best[1][j] - Q[1][j])) for j in range(0, _d)]
+            #         constr.append(zip(*c))
+            #         rhs.append(0.0)
+            #         prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+            #
+            #         self.Lambda_inequalities.append(new_constraints)
+            #
+            #     return _V_best
+            #
+            # else:
+            #     new_constraints = bound + map(operator.sub, _V_best[1], Q[1])
+            #     if not self.already_exists(self.Lambda_inequalities, new_constraints):
+            #         c = [(j, float(Q[1][j] - _V_best[1][j])) for j in range(0, _d)]
+            #         constr.append(zip(*c))
+            #         rhs.append(0.0)
+            #         prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+            #
+            #         self.Lambda_inequalities.append(new_constraints)
+            #
+            #     return Q
 
         noise_vect = self.generate_noise(len(self.Lambda), noise)
         # Lambda_noisy = noise_vect + self.Lambda
@@ -443,7 +395,6 @@ class avi:
             return _V_best
 
         self.Lambda_inequalities.append(bound + map(operator.sub, Q[1], _V_best[1]))
-
         return Q
 
     def Query(self, _V_best, Q, noise):
@@ -459,7 +410,7 @@ class avi:
         if not noise:
             if self.Lambda.dot(_V_best) > self.Lambda.dot(Q):
                 new_constraints = bound + map(operator.sub, _V_best, Q)
-                if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
+                if not self.already_exists(self.Lambda_inequalities, new_constraints):
                     c = [(j, float(Q[j] - _V_best[j])) for j in range(0, _d)]
                     constr.append(zip(*c))
                     rhs.append(0.0)
@@ -471,7 +422,7 @@ class avi:
 
             else:
                 new_constraints = bound + map(operator.sub, Q, _V_best)
-                if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
+                if not self.already_exists(self.Lambda_inequalities, new_constraints):
                     c = [(j, float(Q[j] - _V_best[j])) for j in range(0, _d)]
                     constr.append(zip(*c))
                     rhs.append(0.0)
@@ -537,7 +488,7 @@ class avi:
 
         return query
 
-    # *********************** comparison part **************************
+    # *********************** Algorithms **************************
 
     def value_iteration_with_advantages(self, k, noise, cluster_error, threshold, exact):
 
@@ -545,10 +496,11 @@ class avi:
         gather_diff = []
 
         d = self.mdp.d
-        matrix_nd = np.zeros((self.n, d), dtype=ftype)
+        matrix_nd = np.zeros((self.nstates, d), dtype=ftype)
         v_d = np.zeros(d, dtype=ftype)
 
-        best_p_and_v_d = ({s: [random.randint(0, self.na - 1)] for s in range(self.n)}, np.zeros(d, dtype=ftype))
+        best_p_and_v_d = (
+            {s: [random.randint(0, self.nactions - 1)] for s in range(self.nstates)}, np.zeros(d, dtype=ftype))
 
         # k = 1
         for t in range(k):
@@ -574,6 +526,7 @@ class avi:
             else:
                 v_d = best_v_d
 
+        # noinspection PyUnboundLocalVariable
         return best_v_d, gather_query, gather_diff
 
     def value_iteration_weng(self, k, noise, threshold, exact):
@@ -623,24 +576,113 @@ class avi:
                 Uvec_old_nd = Uvec_nd
 
         queries.append(query_count)
-
+        # noinspection PyUnboundLocalVariable
         return Uvec_final_d, gather_query, gather_diff
+
+    ########## Static methods and functions ##################
+
+    @staticmethod
+    def clean_Points(_points):
+        """ returns a copy of _points where all pairs having as value the vector \bar 0 are deleted
+        :param _points: a dictionary where values are vectors"""
+        _dic = {}
+        for key, value in _points.iteritems():
+            if not np.all(value == 0):
+                _dic[key] = value
+        return _dic
+
+    @staticmethod
+    def make_convex_hull(_dic, _label):
+        # change dictionary types to array and extract lists without their (s,a) pairs
+        _points = []
+        _pairs = []
+
+        diclist = []
+        for key, val in _dic.iteritems():
+            diclist.append((key, val))
+
+        if _label == 'V':
+            for val in _dic.itervalues():
+                _points.append(np.float32(val[1]))
+        else:
+            for key, val in _dic.iteritems():
+                _points.append(np.float32(val))
+                _pairs.append(key)
+
+        _points = np.array(_points)
+
+        try:
+            hull = ConvexHull(_points)
+            hull_vertices = hull.vertices
+            hull_points = _points[hull_vertices, :]
+        except scipy.spatial.qhull.QhullError:
+            print 'convex hull is not available for label:', _label
+            hull_points = _points
+
+        return hull_points
+
+    @staticmethod
+    def keys_of_value(dct, _vector):
+
+        """
+        :param dct: dictionary of (s,a) key and d-dimensional value vectors
+        :param _vector: a vector of dimension d
+        :return: the key of _vector in the given dictionary, AFTER DELETING IT from dct
+        """
+
+        for k, v in dct.iteritems():
+            if (ftype(v) == ftype(_vector)).all():
+                del dct[k]
+                return k
+
+    @staticmethod
+    def get_advantages(_clustered_results_val):
+
+        l = []
+        for val in _clustered_results_val.itervalues():
+            l.append(val)
+        return np.array(l)
+
+    @staticmethod
+    def generate_noise(_d, _noise_deviation):
+        vector_noise = np.zeros(_d, dtype=ftype)
+        for i in range(_d):
+            vector_noise[i] = np.random.normal(0.0, _noise_deviation)
+
+        return vector_noise
+
+    @staticmethod
+    def update( dic, _u):
+        """ Update a dictionary with new values. If the value is itself a mapping, the old value of key is supposed
+            to be itself a dictionary which is recursively updated
+            :param _u: new (key,value) pairs to replace existing (if key exists) or add (else) in dic
+            :param dic: the dictionary to update """
+        for k, v in _u.iteritems():
+            if isinstance(v, collections.Mapping):
+                r = avi.update(dic.get(k, {}), v)
+                dic[k] = r
+            else:
+                dic[k] = _u[k]
+        return dic
+
+    @staticmethod
+    def generate_inequalities(_d):
+        inequalities = []
+        for x in itertools.combinations(xrange(_d), 1):
+            inequalities.append([0] + [1 if i in x else 0 for i in xrange(_d)])
+            inequalities.append([1] + [-1 if i in x else 0 for i in xrange(_d)])
+        return inequalities
+
+    @staticmethod
+    def interior_easy_points(dim):
+        # dim = len(self.points[0])
+        l = []
+        for i in range(dim):
+            l.append(random.uniform(0.0, 1.0))
+        return l
+
 
 
 # ********************************************
-def generate_inequalities(_d):
-    inequalities = []
-
-    for x in itertools.combinations(xrange(_d), 1):
-        inequalities.append([0] + [1 if i in x else 0 for i in xrange(_d)])
-        inequalities.append([1] + [-1 if i in x else 0 for i in xrange(_d)])
-
-    return inequalities
 
 
-def interior_easy_points(dim):
-    # dim = len(self.points[0])
-    l = []
-    for i in range(dim):
-        l.append(random.uniform(0.0, 1.0))
-    return l

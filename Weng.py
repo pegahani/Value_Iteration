@@ -41,7 +41,8 @@ class weng:
 
     #****************************  comparison part ****************************************
 
-    def pareto_comparison(self, a, b):
+    @staticmethod
+    def pareto_comparison(a, b):
         a = np.array(a, dtype= ftype)
         b = np.array(b, dtype= ftype)
 
@@ -103,7 +104,8 @@ class weng:
 
         return False
 
-    def generate_noise(self, _d,  _noise_deviation):
+    @staticmethod
+    def generate_noise(_d, _noise_deviation):
         vector_noise = np.zeros(_d, dtype=ftype)
         for i in range(_d):
             vector_noise[i]= np.random.normal(0.0, _noise_deviation)
@@ -164,7 +166,7 @@ class weng:
 
 
         query = self.Query(_V_best, Q, _noise)
-        self.query_counter_ = self.query_counter_ + 1
+        self.query_counter_ += 1
 
         return query
 
@@ -209,11 +211,11 @@ class weng:
                          sum(a*b for a,b in zip(list(self.get_Lambda()), list(exact)))) )
 
             if delta <threshold:
-                return(Uvec_final_d, gather_query, gather_diff)
+                return Uvec_final_d, gather_query, gather_diff
             else:
                 Uvec_old_nd = Uvec_nd
 
-        return(Uvec_final_d, gather_query, gather_diff)
+        return Uvec_final_d, gather_query, gather_diff
 
 #********************************************
 def generate_inequalities(_d):

@@ -87,12 +87,12 @@ class avi:
     def get_initial_distribution(self):
         return self.mdp.initial_states_distribution()
 
-    def cluster_cosine_similarity(self, _Points, _cluster_error):
+    def cluster_cosine_similarity(self, _advantages_dict, _cluster_threshold):
 
         """
-        this function receives advantages and cluster them using an error distance inside each cluster
-        :param _Points: dictionary of pairs(s,a):advantage vector of dimension d
-        :param _cluster_error: max distance between two point in any cluster(cosine similarity distance)
+        this function receives advantages and clusters them using a threshold inside each cluster
+        :param _advantages_dict: dictionary of pairs (s,a):advantage vector of dimension d
+        :param _cluster_threshold: max distance between two point in any cluster(cosine similarity distance)
         :return: dictionary o clusters such as {1: {(2, 0): [ 0.18869102,  0.], (2, 1):[ 0.18869102,  0.]},
                                                 2: {(0, 1):[ 0.,  0.19183344], (1, 0): array([ 0.,  0.06188244]}
         """
@@ -100,7 +100,7 @@ class avi:
         d = self.mdp.d
         cluster_advantages_dic = {}
 
-        Points_dic = self.clean_Points(_Points)
+        Points_dic = avi.clean_Points(_advantages_dict)
         points_array = np.zeros((len(Points_dic), d),
                                 dtype=ftype)  # array of vectors of size d (the advantages to cluster)
         dic_labels = {}  # array of (s,a) pairs. The index in points_array is also the index of the (s,a) pair
@@ -116,7 +116,7 @@ class avi:
         z = hac.linkage(points_array, method='complete', metric='cosine')
         tol = -1e-16
         z.real[z.real < tol] = 0.0
-        labels = hac.fcluster(z, _cluster_error, criterion='distance')
+        labels = hac.fcluster(z, _cluster_threshold, criterion='distance')
 
         # pyplot.scatter(points_array[:,0], points_array[:,1], c=labels)
         # pyplot.show()
@@ -125,14 +125,12 @@ class avi:
             cluster_advantages_dic.setdefault(la, {})
 
         for index, label in enumerate(labels):
-            update(cluster_advantages_dic, {label: {dic_labels[index]: points_array[index, :]}})
+            avi.update(cluster_advantages_dic, {label: {dic_labels[index]: points_array[index, :]}})
 
         return cluster_advantages_dic
 
     def justify_cluster(self, _vectors_list, _clustered_pairs_vectors):
         """
-        Note fl: the reassignment is not deterministic: in the example, the answer could also be (0,1)(0,0)(2,0) ??
-
         this function get list of vectors of d dimension and a dictionary of pairs and vectors.
         it reassigns pairs to vectors.
 
@@ -154,6 +152,7 @@ class avi:
                        [ 0.        ,  0.10899174],
                        [ 0.        ,  0.32242826]], dtype=float32))}
         """
+        # TODO Note fl: the reassignment is not deterministic: in the example, the answer could also be (0,1)(0,0)(2,0) ??
 
         _dic_pairs_vectors = {}
 
@@ -275,6 +274,7 @@ class avi:
 
             # V_append_d = np.zeros(self.mdp.d, dtype=ftype)
 
+            # TODO V_append_d is a vector of 0s, so the value of the policy is unchanged
             new_policies[k] = (_pi_p, np.float32(operator.add(policy[1], V_append_d)))  # np.float32(policy[1]))
             _pi_p = copy.deepcopy(_pi_old)
 
@@ -318,7 +318,7 @@ class avi:
         if new_constraint in inequality_list:
             return True
         else:
-            for i in range(2 * self.mdp.d, len(inequality_list)):
+            for i in range(2 * self.mdp.d, len(inequality_list)): # TODO why 2 * d ???
 
                 division_list = [np.float32(x / y) for x, y in zip(inequality_list[i], new_constraint)[1:]]
                 if all(x == division_list[0] for x in division_list):
@@ -342,7 +342,7 @@ class avi:
         constr = []
         rhs = []
 
-        # to check : newconstraints is the same whether keep is True or not, while (due to c) the constraint added
+        # TODO check : newconstraints is the same whether keep is True or not, while (due to c) the constraint added
         # to prob is not the same, and in the noisy case it is not the same. An error on newconstraints ?
         if not noise:
             keep = (self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]))
@@ -490,7 +490,16 @@ class avi:
 
     # *********************** Algorithms **************************
 
-    def value_iteration_with_advantages(self, k, noise, cluster_error, threshold, exact):
+    def value_iteration_with_advantages(self, limit, noise, cluster_threshold, min_change, exact):
+        """
+        best_p_and_v_d is a pair made of a dictionary of state:action items and a value vector of size d.
+        :param limit: max number of iterations
+        :param noise: a vector of size d, none if no noise
+        :param cluster_threshold: the threshold to build clusters (max distance between two of its vectors)
+        :param min_change: iteration stops when the value changes less than this min
+        :param exact: the weights (lambda vector) used to simulate users answers to queries.
+        :return:
+        """
 
         gather_query = []
         gather_diff = []
@@ -502,12 +511,12 @@ class avi:
         best_p_and_v_d = (
             {s: [random.randint(0, self.nactions - 1)] for s in range(self.nstates)}, np.zeros(d, dtype=ftype))
 
-        # k = 1
-        for t in range(k):
+        # limit = 1
+        for t in range(limit):
 
             advantages_pair_vector_dic = self.mdp.calculate_advantages_labels(matrix_nd, True, best_p_and_v_d[0])
             cluster_advantages = self.accumulate_advantage_clusters(matrix_nd, advantages_pair_vector_dic,
-                                                                    cluster_error)
+                                                                    cluster_threshold)
             policies = self.declare_policies(cluster_advantages, best_p_and_v_d[0], matrix_nd)
 
             for val in policies.itervalues():
@@ -521,7 +530,7 @@ class avi:
             gather_query.append(self.query_counter_with_advantages)
             gather_diff.append(abs(np.dot(self.get_Lambda(), best_v_d) - np.dot(self.get_Lambda(), exact)))
 
-            if delta < threshold:
+            if delta < min_change:
                 return best_v_d, gather_query, gather_diff
             else:
                 v_d = best_v_d
@@ -584,7 +593,8 @@ class avi:
     @staticmethod
     def clean_Points(_points):
         """ returns a copy of _points where all pairs having as value the vector \bar 0 are deleted
-        :param _points: a dictionary where values are vectors"""
+        :param _points: a dictionary where values are vectors
+        :rtype: dictionary"""
         _dic = {}
         for key, value in _points.iteritems():
             if not np.all(value == 0):
@@ -593,7 +603,14 @@ class avi:
 
     @staticmethod
     def make_convex_hull(_dic, _label):
+        """
+        :param _dic: avantages dictionary of a given cluster
+        :param _label: the key of the cluster
+        :return: an array of advantages
+        """
         # change dictionary types to array and extract lists without their (s,a) pairs
+        # TODO change the return type to avoid the work in justify_cluster: at the end of the try, _pairs[hull_vertices]
+        # are the keys of hull_points
         _points = []
         _pairs = []
 

@@ -1,5 +1,7 @@
 # Value_Iteration using advantages
 
+...........[***Look at the TODO list***].........
+
 This module implements _advantage-based value iteration_. The avi class is in advantage_iteration.py ; it embeds 
 a VVMDP which is in m_mdp.py.  Instances are created and the execution launched in \__init__.py
 
@@ -26,10 +28,15 @@ allow to retrieve the index from the readable form.
   (in value_iteration)
   
 ## The avi code
-  Instance variables are **mdp**, **Lambda**, **Lambda_inequalities**, **query_counter**, **query_counter_with_advantages**.
+  Instance variables are **mdp**, **Lambda**, **Lambda_inequalities**, **query_counter**, 
+  **query_counter_with_advantages**.
   prob is a global variable refering a cplex instance.
   
   An inequality is a list of size _d + 1_. 
   
-  _It seems that we could merge Query and QueryPolicies on tne one side, get_best and get_best_policies on the other side, 
-  since the \[1] can be used at calling time_
+  An advantages dictionnary is a dictionary where keys are pairs (staate, action) and values are advantages (vectors 
+  of size d).  The set of clusters is a dictionary of advantages dictionaries where the key of each cluster is its 
+  number.
+  
+  _It seems that we could merge Query and QueryPolicies on tne one side, get_best and get_best_policies on the 
+  other side, since the \[1] can be used at calling time_

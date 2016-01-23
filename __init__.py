@@ -24,8 +24,8 @@ if __name__ == '__main__':
     # and iterating until actions dont change any more
     exact = m.initial_states_distribution().dot(Uvec)  # expected value ???
 
-    sol = w.value_iteration_with_advantages(k=100000, noise=None,
-                                            cluster_error=0.00001, threshold=0.001, exact=exact)
+    sol = w.value_iteration_with_advantages(limit=100000, noise=None,
+                                            cluster_threshold=0.00001, min_change=0.001, exact=exact)
 
     # sol = w.value_iteration_weng(k=100000, noise= 0.5, threshold=0.0001, exact = exact)
 

@@ -39,7 +39,7 @@ class VVMdp:
                  _rewards,  # dictionary of key:values   s: vector of rewards
                  _gamma=.9, _lambda=None):
 
-        # self._lambda = _lambda #fl that was a type: self._lambda unused in the file
+        # self._lambda = _lambda # TODO fl that was a type: self._lambda unused in the file
         self.Lambda = _lambda
         try:
             states = sorted(
@@ -333,5 +333,6 @@ def make_grid_VVMDP(_lambda, n=2):
             _startingstate={(0, 1)},  # {(0,0)},
             _transitions=_t,
             _rewards=_r
+            # _lambda = _lambda TODO the first argument of the function make_grid_VVMDP is unused
     )
     return gridMdp

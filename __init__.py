@@ -20,9 +20,9 @@ if __name__ == '__main__':
     # w.setStateAction()  # should be in w.__init__ and implicitely performed by the previous line
 
     # m.set_Lambda(_lambda_rand)  # should rather be set as argument of make_grid_VVMDP() line 11
-    Uvec = m.policy_iteration()  # returns the matrix of vectorial values of the policy reached, starting from Values 0
-    # and iterating until actions dont change any more
-    exact = m.initial_states_distribution().dot(Uvec)  # expected value ???
+    Uvec = m.policy_iteration()  # returns the matrix of vectorial values of the best policy reached, starting from
+    # values all equal to 0 and iterating until actions dont change any more
+    exact = m.initial_states_distribution().dot(Uvec)  # expected vectorial value for this best policy
 
     sol = w.value_iteration_with_advantages(limit=100000, noise=None,
                                             cluster_threshold=0.00001, min_change=0.001, exact=exact)

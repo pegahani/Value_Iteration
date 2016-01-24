@@ -18,13 +18,14 @@ except:
 ftype = np.float32
 
 """ Vectorial mdp where rewards are vectors of size d, and scalar values are obtained by scalar product of rewards or
-    utility functions with the lambda vector.
+    utility functions with the weight vector Lambda.
     The initial distribution is equal probability for each initial state. Two functions value_iteration and
-    policy_iteration compute solutions with the help of standard algorithms.
+    policy_iteration compute solutions with the help of standard algorithms without user interaction, since
+    Lambda is known.
     Note that a policy is an array of (state, action) pairs (stationary) or (state, list-of-actions) pairs (non
     stationary).
 Object variables (use with self.xxx):
-        states , actions , nstates , nactions, d, gamma, rmax,_lambda,
+        states , actions , nstates , nactions, d, gamma, rmax, Lambda,
         stateInd,actionInd, startingStateInd
         rewards , transitions, rev_transitions,
          E_test
@@ -38,8 +39,8 @@ class VVMdp:
                  _rewards,  # dictionary of key:values   s: vector of rewards
                  _gamma=.9, _lambda=None):
 
-        self._lambda = _lambda
-
+        # self._lambda = _lambda #fl that was a type: self._lambda unused in the file
+        self.Lambda = _lambda
         try:
             states = sorted(
                     {st for (s, a, s2) in _transitions.iterkeys() for st in (s, s2)}
@@ -156,7 +157,9 @@ class VVMdp:
         return sum((p * (Uvec[s2].dot(self.Lambda)) for s2, p in self.T(s, a)))
 
     def value_iteration(self, epsilon=0.001, policy=None, k=100000, _Uvec=None, _stationary=True):
-        """Solving an MDP by value iteration. [Fig. 17.4]. Stops when the improvement is less than epsilon"""
+        """Solving a VVMdp by value iteration. The weight vector Lambda is known and used to compute scalar
+        value functions, so that is the standard VI algorithm [Fig. 17.4]. Stops when the improvement is
+        less than epsilon"""
         n, na, d, Lambda = self.nstates, self.nactions, self.d, self.Lambda
         gamma, R, expected_scalar_utility = self.gamma, self.rewards, self.expected_scalar_utility
 
@@ -207,8 +210,10 @@ class VVMdp:
         return np.argmax([self.expected_dot_utility(s, a, U) for a in range(self.nactions)])
 
     def policy_iteration(self, _Uvec=None):
-        """Solve an MDP by policy iteration [Fig. 17.7]. Tries 20 value iterations, then test if the policiy has
-        changed and stops if not."""
+        """Solve an MDP by policy iteration [Fig. 17.7]. Tries 20 value iterations, then chooses the new best
+        actions according to new vectorial values. Test if the policiy has changed and stops if not.
+        :param _Uvec is the set of initial vectorial values of states
+        """
         if _Uvec is None:
             U = np.zeros((self.nstates, self.d), dtype=ftype)
         else:
@@ -226,15 +231,15 @@ class VVMdp:
             if unchanged:
                 return U
 
-    def calculate_advantages_labels(self, _matrix_nd, _IsInitialDistribution, policy):
+    def calculate_advantages_dic(self, _matrix_nd, _IsInitialDistribution, policy):
         """
-        This function get a matrix and finds all |S|x|A| advantages.  It is unused in the class (17/1/2016)
+        This function get a matrix and finds all |S|x|A| advantages.  It is unused in the class, but used by avi
         :param _matrix_nd: a matrix of dimension nxd which is required to calculate advantages (the actual vectorial
             utility function)
         :param _IsInitialDistribution: if initial distribution should be considered in advantage calculation or not
         :param policy: unused
-        :return: a dictionary of all advantages for our MDP. keys are pairs and values are advantages vectros
-                for instance: for state s and action a and d= 3 we have: (s,a): [0.1,0.2,0.4]
+        :return: an advantages dictionary, i.e. a dictionary of all advantages for our MDP. keys are pairs and
+        values are advantages vectors for instance: for state s and action a and d= 3 we have: (s,a): [0.1,0.2,0.4]
         """
 
         n, na = self.nstates, self.nactions
@@ -246,7 +251,6 @@ class VVMdp:
                 advantage_d = self.get_vec_Q(s, a, _matrix_nd) - _matrix_nd[s]
                 if _IsInitialDistribution:
                     advantage_dic[(s, a)] = init_distribution[s] * advantage_d
-                    # advantage_dic[(s,a)] = advantage_d
                 else:
                     advantage_dic[(s, a)] = advantage_d
 

@@ -1,9 +1,9 @@
 # Value_Iteration using advantages
 
-...........[***Look at the TODO list***].........
+...........[***Look at the TODO list***]......... 
 
-This module implements _advantage-based value iteration_. The avi class is in advantage_iteration.py ; it embeds 
-a VVMDP which is in m_mdp.py.  Instances are created and the execution launched in \__init__.py
+This module implements _advantage-based value iteration_. The `avi` class is in `advantage_iteration.py` ; it embeds 
+a VVMDP which is in `m_mdp.py`.  Instances are created and the execution launched in \__init__.py
 
 In the following description, instance variables are written in **boldface** 
 
@@ -34,9 +34,12 @@ allow to retrieve the index from the readable form.
   
   An inequality is a list of size _d + 1_. 
   
-  An advantages dictionnary is a dictionary where keys are pairs (staate, action) and values are advantages (vectors 
+  An advantages dictionnary is a dictionary where keys are pairs (state, action) and values are advantages (vectors 
   of size d).  The set of clusters is a dictionary of advantages dictionaries where the key of each cluster is its 
   number.
+  
+  A policy-value node is a pair formed of: a polivy which is a dictionary of state:action correspondance, and the 
+  value vector(size d) associated to this policy.
   
   _It seems that we could merge Query and QueryPolicies on tne one side, get_best and get_best_policies on the 
   other side, since the \[1] can be used at calling time_

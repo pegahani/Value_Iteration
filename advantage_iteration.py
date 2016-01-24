@@ -456,6 +456,7 @@ class avi:
 
         if self.cplex_K_dominance_check(Q[1], _V_best[1]):
             return Q
+
         elif self.cplex_K_dominance_check(_V_best[1], Q[1]):
             return _V_best
 
@@ -505,19 +506,20 @@ class avi:
         gather_diff = []
 
         d = self.mdp.d
-        matrix_nd = np.zeros((self.nstates, d), dtype=ftype)
-        v_d = np.zeros(d, dtype=ftype)
+        matrix_nd = np.zeros((self.nstates, d), dtype=ftype) # initial value vector per state
+        v_d = np.zeros(d, dtype=ftype) # a value vector
 
+        # initial policy-value node:
         best_p_and_v_d = (
             {s: [random.randint(0, self.nactions - 1)] for s in range(self.nstates)}, np.zeros(d, dtype=ftype))
 
         # limit = 1
         for t in range(limit):
 
-            advantages_pair_vector_dic = self.mdp.calculate_advantages_labels(matrix_nd, True, best_p_and_v_d[0])
-            cluster_advantages = self.accumulate_advantage_clusters(matrix_nd, advantages_pair_vector_dic,
+            advantages_dic = self.mdp.calculate_advantages_dic(matrix_nd, True, best_p_and_v_d[0])
+            clusters_dic = self.accumulate_advantage_clusters(matrix_nd, advantages_dic,
                                                                     cluster_threshold)
-            policies = self.declare_policies(cluster_advantages, best_p_and_v_d[0], matrix_nd)
+            policies = self.declare_policies(clusters_dic, best_p_and_v_d[0], matrix_nd)
 
             for val in policies.itervalues():
                 best_p_and_v_d = self.get_best_policies(best_p_and_v_d, val, noise)

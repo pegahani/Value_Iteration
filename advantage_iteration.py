@@ -33,8 +33,6 @@ class avi:
         self.Lambda[:] = _lambda
 
         self.Lambda_inequalities = _lambda_inequalities
-
-        self.query_counter_ = 0
         self.query_counter_with_advantages = 0
 
 
@@ -294,6 +292,7 @@ class avi:
             cluster_pairs_vectors = self.justify_cluster(convex_hull_clusters, clustered_advantages)
             sum_on_convex_hull_temp = self.sum_cluster_and_matrix(cluster_pairs_vectors, _matrix_nd)
             sum_on_convex_hull = {key:val for key,val in sum_on_convex_hull_temp.iteritems() if val[1]}
+
             return sum_on_convex_hull
 
         return {}
@@ -326,6 +325,10 @@ class avi:
             #V_append_d = np.zeros(self.mdp.d, dtype=ftype)
 
             new_policies[k] = (_pi_p,np.float32(operator.add(policy[1], V_append_d)) ) #np.float32(policy[1]))
+
+            #global log
+            #print >> log, 'added vector ', policy[1], ' added advantage', np.dot(self.get_Lambda(), policy[1])
+
             _pi_p = copy.deepcopy(_pi_old)
 
         return new_policies
@@ -386,6 +389,7 @@ class avi:
 
         global prob
 
+
         bound = [0.0]
         _d = len(_V_best[1])
 
@@ -418,17 +422,19 @@ class avi:
                 return Q
 
         noise_vect = self.generate_noise(len(self.Lambda), noise)
+        print 'generate noise', noise_vect
         #Lambda_noisy = noise_vect + self.Lambda
         V_best_noisy = noise_vect + _V_best[1]
 
         #if Lambda_noisy.dot(_V_best[1]) > Lambda_noisy.dot(Q[1]):
         if self.Lambda.dot(V_best_noisy)>self.Lambda.dot(Q[1]):
+            #print >>log, "correct response",self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]), "wrong response",True
             self.Lambda_inequalities.append(bound+map(operator.sub, _V_best[1], Q[1]))
             return _V_best
-
-        self.Lambda_inequalities.append( bound+map(operator.sub, Q[1], _V_best[1]))
-
-        return Q
+        else:
+            #print >>log, "correct response",self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]), "wrong response",False
+            self.Lambda_inequalities.append( bound+map(operator.sub, Q[1], _V_best[1]))
+            return Q
 
     def Query(self, _V_best, Q, noise):
 
@@ -493,7 +499,6 @@ class avi:
             return _V_best
 
         query = self.Query_policies(_V_best, Q, _noise)
-        #if this query is asked for value iteration with advantages
         self.query_counter_with_advantages+=1
 
         return query
@@ -528,6 +533,8 @@ class avi:
 
     def value_iteration_with_advantages(self, k, noise, cluster_error, threshold, exact):
 
+        log = open("output_avi" + ".txt", "w")
+
         gather_query = []
         gather_diff = []
 
@@ -547,6 +554,7 @@ class avi:
             for val in policies.itervalues():
                 best_p_and_v_d = self.get_best_policies(best_p_and_v_d, val, noise)
 
+
             matrix_nd = self.mdp.update_matrix(policy_p=best_p_and_v_d[0], _Uvec_nd= matrix_nd)
             best_v_d = best_p_and_v_d[1]
 
@@ -555,10 +563,16 @@ class avi:
             gather_query.append(self.query_counter_with_advantages)
             gather_diff.append(abs( np.dot(self.get_Lambda(), best_v_d) - np.dot(self.get_Lambda(), exact)) )
 
+            print >> log,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1], \
+                " +" if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
+
             if delta < threshold:
                 return (best_v_d, gather_query, gather_diff)
             else:
                 v_d = best_v_d
+
+        print >> log,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1],\
+            " +" if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
 
         return (best_v_d, gather_query, gather_diff)
 
@@ -576,7 +590,9 @@ class avi:
         gather_diff = []
 
         n, na, d =self.mdp.nstates , self.mdp.nactions, self.mdp.d
-        Uvec_old_nd = np.zeros( (n,d) , dtype=ftype)
+        Uvec_old_nd = np.zeros((n,d), dtype=ftype)
+
+        delta = 0.0
 
         query_count = self.query_counter_
         queries = []
@@ -600,7 +616,13 @@ class avi:
             gather_query.append(self.query_counter_)
             gather_diff.append(abs(np.dot(self.get_Lambda(), Uvec_final_d) - np.dot(self.get_Lambda(), exact)))
 
+            if query_count != self.query_counter_:
+                queries.append(query_count)
+                query_count = self.query_counter_
+
             if delta <threshold:
+                queries.append(query_count)
+                print 'iteration', t
                 return(Uvec_final_d, gather_query, gather_diff)
 
             else:
@@ -608,6 +630,7 @@ class avi:
 
         queries.append(query_count)
 
+        print 'iteraion', t
         return(Uvec_final_d ,gather_query, gather_diff)
 
 

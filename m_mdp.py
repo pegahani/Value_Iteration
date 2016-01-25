@@ -198,8 +198,7 @@ class VVMdp:
 
 
     def policy_iteration(self,_Uvec=None):
-        "Solve an MDP by policy iteration [Fig. 17.7]. Tries 20 value iterations, then test if the policiy has changed
-        and stops if not."
+        "Solve an MDP by policy iteration [Fig. 17.7]. Tries 20 value iterations, then test if the policiy has changed and stops if not."
         if _Uvec == None:
             U = np.zeros( (self.nstates,self.d) , dtype=ftype)
         else:
@@ -282,7 +281,7 @@ def make_simulate_mdp_Yann(n_states, n_actions, _lambda, _r=None):
         next_states = random.sample(range(n_states), nsuccessors)
         probas =  np.fromiter(islice(ifilter(lambda x: 0 < x < 1 ,gauss_iter),nsuccessors), ftype)
 
-        _t.update(  {(s,a,s2):p for s2,p in izip(next_states, probas/sum(probas) )  }  )
+        _t.update( {(s,a,s2):p for s2,p in izip(next_states, probas/sum(probas) )  }  )
 
     if _r is None:
         #_r = {i:np.random.permutation([random.randint(1,5)]+[0]*(len(_lambda)-1)) for i in range(n_states)}

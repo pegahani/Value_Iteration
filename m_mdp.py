@@ -198,7 +198,10 @@ class VVMdp:
 
 
     def policy_iteration(self,_Uvec=None):
-        "Solve an MDP by policy iteration [Fig. 17.7]. Tries 20 value iterations, then test if the policiy has changed and stops if not."
+
+        """Solve an MDP by policy iteration [Fig. 17.7]. Tries 20 value iterations, then test if the policiy has changed
+        and stops if not."""
+
         if _Uvec == None:
             U = np.zeros( (self.nstates,self.d) , dtype=ftype)
         else:

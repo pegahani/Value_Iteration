@@ -13,7 +13,6 @@ if __name__ == '__main__':
     # _state, _action = 4, 5
     # m = m_mdp.make_simulate_mdp_Yann(_state, _action, _lambda_rand, None)
 
-
     print 'rewards', m.rewards
 
     w = advantage_iteration.avi(m, _lambda_rand, _Lambda_inequalities)

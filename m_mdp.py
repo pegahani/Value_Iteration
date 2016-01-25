@@ -10,7 +10,7 @@ import sys
 try:
     from scipy.sparse import csr_matrix, dok_matrix
     from scipy.spatial.distance import cityblock as l1distance
-except:
+except ImportError:
     # from sparse_mat import dok_matrix,csr_matrix,l1distance
     print "Problem with scipy"
     sys.exit(1)
@@ -67,7 +67,7 @@ class VVMdp:
             assert set(_rewards.keys()).issubset(states), \
                 "states appearing in rewards should also appear in transitions"
 
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
 
             print "transitions or rewards do not have the correct structure"
             raise
@@ -125,18 +125,19 @@ class VVMdp:
 
     def initial_states_distribution(self):
         n = self.nstates
-        _init_states = np.zeros(n, dtype=ftype)
+        _init_distrib = np.zeros(n, dtype=ftype)
 
         init_n = len(self.startingStateInd)
 
         for i in range(n):
             if i in self.startingStateInd:
-                _init_states[i] = ftype(1) / ftype(init_n)
-                # _init_states[i] = 1.0
+                # _init_distrib[i] = ftype(1) / ftype(init_n)
+                _init_distrib[i] = 1.0 / init_n
+                # _init_distrib[i] = 1.0
             else:
-                _init_states[i] = 0.0
+                _init_distrib[i] = 0.0
 
-        return _init_states
+        return _init_distrib
 
     def expected_vec_utility(self, s, a, Uvec):
         """The expected vector utility of doing a in state s, according to the MDP and U."""

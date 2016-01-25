@@ -8,7 +8,7 @@ import numpy as np
 import itertools
 import operator
 import scipy.cluster.hierarchy as hac
-import scipy.spatial.qhull
+import scipy.spatial.qhull as ssq
 from scipy.spatial import ConvexHull
 import sys
 
@@ -17,7 +17,7 @@ try:
     from scipy.spatial.distance import cityblock as l1distance
     # noinspection PyPep8Naming
     from scipy.spatial.distance import cdist as linfDistance
-except:
+except ImportError:
     # from sparse_mat import dok_matrix, csr_matrix, l1distance
     print "Problem with scipy"
     sys.exit(1)
@@ -255,7 +255,7 @@ class avi:
         :param pi_p: the given policy without counting improvement in accounts
         :return: dictionary of new policies and related improved vector values
         """
-
+        # TODO matrix_nd is unused
         _pi_p = pi_p.copy()
         V_append_d = np.zeros(self.mdp.d, dtype=ftype)
 
@@ -468,6 +468,7 @@ class avi:
 
     def get_best(self, _V_best, Q, _noise):
 
+        # noinspection PyUnresolvedReferences
         if (_V_best == Q).all():
             return Q
 
@@ -558,7 +559,7 @@ class avi:
         n, na, d = self.mdp.nstates, self.mdp.nactions, self.mdp.d
         Uvec_old_nd = np.zeros((n, d), dtype=ftype)
 
-        query_count = self.query_counter_
+        query_count = self.query_counter_ # TODO queries and query_count are unused
         queries = []
 
         for t in range(k):
@@ -599,7 +600,8 @@ class avi:
         :rtype: dictionary"""
         _dic = {}
         for key, value in _points.iteritems():
-            if not np.all(value == 0):
+            # if not np.all(value == 0):
+            if not np.any(value): #  avoids a syntax warning
                 _dic[key] = value
         return _dic
 
@@ -634,7 +636,7 @@ class avi:
             hull = ConvexHull(_points)
             hull_vertices = hull.vertices
             hull_points = _points[hull_vertices, :]
-        except scipy.spatial.qhull.QhullError:
+        except ssq.QhullError:
             print 'convex hull is not available for label:', _label
             hull_points = _points
 
@@ -650,6 +652,7 @@ class avi:
         """
 
         for k, v in dct.iteritems():
+            # noinspection PyUnresolvedReferences
             if (ftype(v) == ftype(_vector)).all():
                 del dct[k]
                 return k

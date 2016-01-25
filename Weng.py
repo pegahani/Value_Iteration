@@ -15,8 +15,10 @@ try:
     from scipy.sparse import csr_matrix, dok_matrix
     from scipy.spatial.distance import cityblock as l1distance
     from scipy.spatial.distance import cdist as linfDistance
-except:
-    from sparse_mat import dok_matrix, csr_matrix, l1distance
+except ImportError:
+    #  from sparse_mat import dok_matrix, csr_matrix, l1distance
+    print "Problem with scipy"
+    sys.exit(1)
 
 ftype = np.float32
 
@@ -185,7 +187,7 @@ class weng:
         n, na, d = self.mdp.nstates, self.mdp.nactions, self.mdp.d
         Uvec_old_nd = np.zeros((n, d), dtype=ftype)
 
-        delta = 0.0
+        delta = 0.0  # seems useless and harmless
 
         for t in range(k):
             Uvec_nd = np.zeros((n, d), dtype=ftype)

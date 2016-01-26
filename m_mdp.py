@@ -39,8 +39,10 @@ class VVMdp:
                  _rewards,  # dictionary of key:values   s: vector of rewards
                  _gamma=.9, _lambda=None):
 
-        # self._lambda = _lambda # TODO fl that was a type: self._lambda unused in the file
-        self.Lambda = _lambda
+        # self._lambda = _lambda # TODO fl that was a typo: self._lambda unused in the file
+        """
+        :type _lambda: list of size d
+        """
         try:
             states = sorted(
                     {st for (s, a, s2) in _transitions.iterkeys() for st in (s, s2)}
@@ -71,6 +73,11 @@ class VVMdp:
 
             print "transitions or rewards do not have the correct structure"
             raise
+
+        # converts _lambda to a np vector so as to use Lambda.dot()
+        self.Lambda = np.zeros(d, dtype=ftype)
+        if  _lambda is not None:
+            self.Lambda[:] = _lambda
 
         # convert rewards to nstates x d matrix
         rewards = np.zeros((n, d), dtype=ftype)
@@ -235,22 +242,23 @@ class VVMdp:
     def calculate_advantages_dic(self, _matrix_nd, _IsInitialDistribution, policy):
         """
         This function get a matrix and finds all |S|x|A| advantages.  It is unused in the class, but used by avi
-        :param _matrix_nd: a matrix of dimension nxd which is required to calculate advantages (the actual vectorial
+        :param _matrix_nd: a matrix of dimension nxd which is required to calculate advantages (the current vectorial
             utility function)
         :param _IsInitialDistribution: if initial distribution should be considered in advantage calculation or not
         :param policy: unused
         :return: an advantages dictionary, i.e. a dictionary of all advantages for our MDP. keys are pairs and
         values are advantages vectors for instance: for state s and action a and d= 3 we have: (s,a): [0.1,0.2,0.4]
         """
-
+        # TODO _IsInitialDistribution = True causes a bug, since it may happen that advantage_dic has
+        # only zero values
         n, na = self.nstates, self.nactions
         advantage_dic = {}
         init_distribution = self.initial_states_distribution()
-
         for s in range(n):
             for a in range(na):
                 advantage_d = self.get_vec_Q(s, a, _matrix_nd) - _matrix_nd[s]
                 if _IsInitialDistribution:
+                    # print 'state', s, 'action', a, 'avantage', advantage_d, 'probastate', init_distribution[s]
                     advantage_dic[(s, a)] = init_distribution[s] * advantage_d
                 else:
                     advantage_dic[(s, a)] = advantage_d
@@ -333,7 +341,7 @@ def make_grid_VVMDP(_lambda, n=2):
     gridMdp = VVMdp(
             _startingstate={(0, 1)},  # {(0,0)},
             _transitions=_t,
-            _rewards=_r
-            # _lambda = _lambda TODO the first argument of the function make_grid_VVMDP is unused
+            _rewards=_r,
+            _lambda= _lambda # TODO the first argument of the function make_grid_VVMDP is unused
     )
     return gridMdp

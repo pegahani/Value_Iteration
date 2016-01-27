@@ -15,10 +15,8 @@ try:
     from scipy.sparse import csr_matrix, dok_matrix
     from scipy.spatial.distance import cityblock as l1distance
     from scipy.spatial.distance import cdist as linfDistance
-except ImportError:
-    #  from sparse_mat import dok_matrix, csr_matrix, l1distance
-    print "Problem with scipy"
-    sys.exit(1)
+except:
+    from sparse_mat import dok_matrix,csr_matrix,l1distance
 
 ftype = np.float32
 
@@ -118,16 +116,16 @@ class weng:
 
         if not noise:
             if self.Lambda.dot(_V_best) > self.Lambda.dot(Q):
-                new_constraints = bound + map(operator.sub, _V_best, Q)
-                if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
-                    self.Lambda_inequalities.append(new_constraints)
+                new_constraints = bound+map(operator.sub, _V_best, Q)
+                #if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
+                self.Lambda_inequalities.append(new_constraints)
 
                 return _V_best
 
             else:
-                new_constraints = bound + map(operator.sub, Q, _V_best)
-                if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
-                    self.Lambda_inequalities.append(new_constraints)
+                new_constraints = bound+map(operator.sub, Q, _V_best)
+                #if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
+                self.Lambda_inequalities.append(new_constraints)
 
                 return Q
         else:
@@ -148,8 +146,8 @@ class weng:
 
     def get_best(self, _V_best, Q, _noise):
 
-        if (_V_best == Q).all():
-            return Q
+        #if ( _V_best == Q).all():
+        #    return Q
 
         if self.pareto_comparison(_V_best, Q):
             return _V_best
@@ -181,6 +179,8 @@ class weng:
         optimal value solution of algorithm.
         """
 
+        wen = open("output_weng" + ".txt", "w")
+
         gather_query = []
         gather_diff = []
 
@@ -206,16 +206,23 @@ class weng:
             delta = linfDistance([np.array(Uvec_final_d)], [np.array(Uvec_old_d)], 'chebyshev')[0, 0]
 
             gather_query.append(self.query_counter_)
-            gather_diff.append(abs(sum(a * b for a, b in zip(list(self.get_Lambda()), list(Uvec_final_d))) - \
-                                   sum(a * b for a, b in zip(list(self.get_Lambda()), list(exact)))))
+            gather_diff.append(abs( np.dot(self.get_Lambda(),Uvec_final_d) - np.dot(self.get_Lambda(), exact)))
+
+            #gather_diff.append(linfDistance( [np.array(Uvec_final_d)] , [np.array(exact)], 'chebyshev')[0,0])
+            #gather_diff.append(delta) # problem de side effect
+
+            print >> wen, "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1],\
+                " +" if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
 
             if delta < threshold:
                 return Uvec_final_d, gather_query, gather_diff
             else:
                 Uvec_old_nd = Uvec_nd
 
-        return Uvec_final_d, gather_query, gather_diff
+        print >> wen,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1],\
+        "+ " if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
 
+        return(Uvec_final_d, gather_query, gather_diff)
 
 # ********************************************
 def generate_inequalities(_d):
@@ -234,3 +241,4 @@ def interior_easy_points(dim):
     for i in range(dim):
         l.append(random.uniform(0.0, 1.0))
     return l
+

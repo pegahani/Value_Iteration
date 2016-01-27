@@ -10,17 +10,14 @@ import operator
 import scipy.cluster.hierarchy as hac
 import scipy.spatial.qhull as ssq
 from scipy.spatial import ConvexHull
-import sys
 
 try:
     from scipy.sparse import csr_matrix, dok_matrix
     from scipy.spatial.distance import cityblock as l1distance
     # noinspection PyPep8Naming
     from scipy.spatial.distance import cdist as linfDistance
-except ImportError:
-    # from sparse_mat import dok_matrix, csr_matrix, l1distance
-    print "Problem with scipy"
-    sys.exit(1)
+except:
+    from sparse_mat import dok_matrix, csr_matrix, l1distance
 
 ftype = np.float32
 
@@ -42,8 +39,6 @@ class avi:
         self.Lambda[:] = _lambda
 
         self.Lambda_inequalities = _lambda_inequalities
-
-        self.query_counter_ = 0
         self.query_counter_with_advantages = 0
 
         global prob
@@ -243,6 +238,7 @@ class avi:
             cluster_pairs_vectors = self.justify_cluster(convex_hull_clusters, clustered_advantages)
             sum_on_convex_hull_temp = self.sum_cluster_and_matrix(cluster_pairs_vectors, _old_value_vector)
             sum_on_convex_hull = {key: val for key, val in sum_on_convex_hull_temp.iteritems() if val[1]}
+
             return sum_on_convex_hull
 
         return {}
@@ -275,8 +271,11 @@ class avi:
 
             # V_append_d = np.zeros(self.mdp.d, dtype=ftype)
 
-            # TODO V_append_d is a vector of 0s, so the value of the policy is unchanged
-            new_policies[k] = (_pi_p, np.float32(operator.add(policy[1], V_append_d)))  # np.float32(policy[1]))
+            new_policies[k] = (_pi_p,np.float32(operator.add(policy[1], V_append_d)) ) #np.float32(policy[1]))
+
+            #global log
+            #print >> log, 'added vector ', policy[1], ' added advantage', np.dot(self.get_Lambda(), policy[1])
+
             _pi_p = copy.deepcopy(_pi_old)
 
         return new_policies
@@ -387,16 +386,20 @@ class avi:
             #     return Q
 
         noise_vect = self.generate_noise(len(self.Lambda), noise)
-        # Lambda_noisy = noise_vect + self.Lambda
+
+        print 'generate noise', noise_vect
+        #Lambda_noisy = noise_vect + self.Lambda
         V_best_noisy = noise_vect + _V_best[1]
 
-        # if Lambda_noisy.dot(_V_best[1]) > Lambda_noisy.dot(Q[1]):
-        if self.Lambda.dot(V_best_noisy) > self.Lambda.dot(Q[1]):
-            self.Lambda_inequalities.append(bound + map(operator.sub, _V_best[1], Q[1]))
+        #if Lambda_noisy.dot(_V_best[1]) > Lambda_noisy.dot(Q[1]):
+        if self.Lambda.dot(V_best_noisy)>self.Lambda.dot(Q[1]):
+            #print >>log, "correct response",self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]), "wrong response",True
+            self.Lambda_inequalities.append(bound+map(operator.sub, _V_best[1], Q[1]))
             return _V_best
-
-        self.Lambda_inequalities.append(bound + map(operator.sub, Q[1], _V_best[1]))
-        return Q
+        else:
+            #print >>log, "correct response",self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]), "wrong response",False
+            self.Lambda_inequalities.append( bound+map(operator.sub, Q[1], _V_best[1]))
+            return Q
 
     def Query(self, _V_best, Q, noise):
 
@@ -462,6 +465,7 @@ class avi:
             return _V_best
 
         query = self.Query_policies(_V_best, Q, _noise)
+
         # if this query is asked for value iteration with advantages
         self.query_counter_with_advantages += 1
 
@@ -504,6 +508,8 @@ class avi:
         :return:
         """
 
+        log = open("output_avi" + ".txt", "w")
+
         gather_query = []
         gather_diff = []
 
@@ -537,10 +543,16 @@ class avi:
             gather_query.append(self.query_counter_with_advantages)
             gather_diff.append(abs(self.Lambda.dot(currenvalue_d) - self.Lambda.dot(exact)))
 
+            print >> log,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1], \
+                " +" if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
+
             if delta < min_change:
                 return currenvalue_d, gather_query, gather_diff
             else:
                 previousvalue_d = currenvalue_d
+
+        print >> log,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1],\
+            " +" if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
 
         # noinspection PyUnboundLocalVariable
         return currenvalue_d, gather_query, gather_diff
@@ -560,9 +572,10 @@ class avi:
         gather_query = []
         gather_diff = []
 
-        n, na, d = self.mdp.nstates, self.mdp.nactions, self.mdp.d
-        Uvec_old_nd = np.zeros((n, d), dtype=ftype)
+        n, na, d =self.mdp.nstates , self.mdp.nactions, self.mdp.d
+        Uvec_old_nd = np.zeros((n,d), dtype=ftype)
 
+        delta = 0.0
         query_count = self.query_counter_ # TODO queries and query_count are unused
         queries = []
 
@@ -585,17 +598,22 @@ class avi:
             gather_query.append(self.query_counter_)
             gather_diff.append(abs(np.dot(self.get_Lambda(), Uvec_final_d) - np.dot(self.get_Lambda(), exact)))
 
-            if delta < threshold:
-                return Uvec_final_d, gather_query, gather_diff
+            if query_count != self.query_counter_:
+                queries.append(query_count)
+                query_count = self.query_counter_
+
+            if delta <threshold:
+                queries.append(query_count)
+                print 'iteration', t
+                return(Uvec_final_d, gather_query, gather_diff)
 
             else:
                 Uvec_old_nd = Uvec_nd
 
         queries.append(query_count)
-        # noinspection PyUnboundLocalVariable
-        return Uvec_final_d, gather_query, gather_diff
 
-    ########## Static methods and functions ##################
+        print 'iteraion', t
+        return(Uvec_final_d ,gather_query, gather_diff)
 
     @staticmethod
     def clean_Points(_points):

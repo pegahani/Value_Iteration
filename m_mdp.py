@@ -5,15 +5,12 @@ import math
 import numpy as np
 from toolz import first
 import random
-import sys
 
 try:
     from scipy.sparse import csr_matrix, dok_matrix
     from scipy.spatial.distance import cityblock as l1distance
-except ImportError:
-    # from sparse_mat import dok_matrix,csr_matrix,l1distance
-    print "Problem with scipy"
-    sys.exit(1)
+except:
+    from sparse_mat import dok_matrix,csr_matrix,l1distance
 
 ftype = np.float32
 
@@ -304,7 +301,7 @@ def make_simulate_mdp_Yann(n_states, n_actions, _lambda, _r=None):
         next_states = random.sample(range(n_states), nsuccessors)
         probas = np.fromiter(islice(ifilter(lambda x: 0 < x < 1, gauss_iter), nsuccessors), ftype)
 
-        _t.update({(s, a, s2): p for s2, p in izip(next_states, probas / sum(probas))})
+        _t.update( {(s,a,s2):p for s2,p in izip(next_states, probas/sum(probas) )  }  )
 
     if _r is None:
         # _r = {i:np.random.permutation([random.randint(1,5)]+[0]*(len(_lambda)-1)) for i in range(n_states)}

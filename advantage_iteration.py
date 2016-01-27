@@ -665,9 +665,9 @@ class avi:
             hull_points = _points
             hull_pairs = _pairs
 
-        # return hull_points
-        CH_advantages_dic = {k:v for (k,v) in zip(hull_pairs, hull_points)}
-        return CH_advantages_dic
+        return hull_points
+        # CH_advantages_dic = {k:v for (k,v) in zip(hull_pairs, hull_points)}
+        # return CH_advantages_dic
 
     @staticmethod
     def keys_of_value(dct, _vector):

@@ -217,6 +217,7 @@ class VVMdp:
     def policy_iteration(self, _Uvec=None):
         """Solve an MDP by policy iteration [Fig. 17.7]. Tries 20 value iterations, then chooses the new best
         actions according to new vectorial values. Test if the policiy has changed and stops if not.
+        :rtype: the vectorial value of the fix-point policy
         :param _Uvec is the set of initial vectorial values of states
         """
         if _Uvec is None:

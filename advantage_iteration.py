@@ -342,11 +342,14 @@ class avi:
         constr = []
         rhs = []
 
-        # TODO check : newconstraints is the same whether keep is True or not, while (due to c) the constraint added
+        # TODO Changed : newconstraints is the same whether keep is True or not, while (due to c) the constraint added
         # to prob is not the same, and in the noisy case it is not the same. An error on newconstraints ?
         if not noise:
             keep = (self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]))
-            new_constraints = bound + map(operator.sub, _V_best[1], Q[1])
+            if keep:
+                new_constraints = bound + map(operator.sub, _V_best[1], Q[1])
+            else:
+                new_constraints = bound + map(operator.sub, Q[1], _V_best[1])
             if not self.already_exists(self.Lambda_inequalities, new_constraints):
                 if keep:
                     c = [(j, float(_V_best[1][j] - Q[1][j])) for j in range(0, _d)]

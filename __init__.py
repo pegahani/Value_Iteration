@@ -5,7 +5,7 @@ from matplotlib import pylab as plt
 
 if __name__ == '__main__':
 
-    _d = 2
+    _d = 4
 
     _Lambda_inequalities = avi.generate_inequalities(_d)
     _lambda_rand = avi.interior_easy_points(_d)
@@ -35,8 +35,11 @@ if __name__ == '__main__':
     #print "weng result", sol_weng
     # print "avi result", sol_avi
 
-    ax = plt.subplot(111)
+    ax = plt.subplot(211)
     ax.plot(sol_weng[1], sol_weng[2],'b', marker='o')
+    ax.set_title("Weng")
+    ax = plt.subplot(212)
     ax.plot(sol_avi[1], sol_avi[2],'g',marker='o')
+    ax.set_title("avi")
 
     plt.show()

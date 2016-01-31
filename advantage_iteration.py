@@ -164,6 +164,7 @@ class avi:
         _points = np.array(_points)
 
         try:
+            #TODO change return value type
             hull = ConvexHull(_points)
             hull_vertices = hull.vertices
             hull_points = _points[hull_vertices, :]
@@ -312,6 +313,7 @@ class avi:
 
         return {}
 
+    #TODO matrix_nd is useless
     def declare_policies(self, _policies, pi_p, matrix_nd):
         """
         this function receives dictionary of state action pairs an related vector value improvements
@@ -339,6 +341,8 @@ class avi:
                     #    print 'dakhele else V_append_d = ', V_append_d
 
             # V_append_d = np.zeros(self.mdp.d, dtype=ftype)
+
+            #TODO check it again
 
             new_policies[k] = (_pi_p,np.float32(operator.add(policy[1], V_append_d)) ) #np.float32(policy[1]))
 
@@ -426,7 +430,8 @@ class avi:
                 return _V_best
 
             else:
-                new_constraints = bound + map(operator.sub, _V_best[1], Q[1])
+                #TODO we have change Q with _V_best
+                new_constraints = bound + map(operator.sub, Q[1], _V_best[1])
                 if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
                     c = [(j, float(Q[1][j] - _V_best[1][j])) for j in range(0, _d)]
                     constr.append(zip(*c))

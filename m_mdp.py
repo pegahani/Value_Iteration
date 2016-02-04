@@ -209,7 +209,7 @@ class VVMdp:
 
         pi = {s:random.randint(0,self.nactions-1) for s in range(self.nstates)}
         while True:
-            U = self.value_iteration(epsilon=0.0,policy=pi, k=20,_Uvec=U, _stationary=False)
+            U = self.value_iteration(epsilon=0.0,policy=pi, k=50, _Uvec=U, _stationary=False)
             unchanged = True
             for s in range(self.nstates):
                 a = self.best_action(s,U)

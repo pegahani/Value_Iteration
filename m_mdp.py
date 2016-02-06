@@ -169,8 +169,12 @@ class VVMdp:
         gamma, R, expected_scalar_utility = self.gamma, self.rewards, self.expected_scalar_utility
 
         Udot = np.zeros(n, dtype=ftype)
-        _uvec = np.zeros(d, dtype=ftype)
+        uvec = np.zeros(d, dtype=ftype)
         Uvec = np.zeros((n, d), dtype=ftype)
+        # for test
+        lastp = np.zeros(n, dtype=np.int16)
+        newp = np.zeros(n, dtype=np.int16)
+
         if _Uvec is not None:
             Uvec[:] = _Uvec
 
@@ -191,21 +195,26 @@ class VVMdp:
                 else:
                     Q[:] = [expected_scalar_utility(s, a, Udot) for a in range(na)]
                     act = np.argmax(Q)
+                    newp[s] = act
 
                 # Compute the update
-                _uvec[:] = R[s] + gamma * self.expected_vec_utility(s, act,
+                uvec[:] = R[s] + gamma * self.expected_vec_utility(s, act,
                                                                     Uvec)  # vectorial utility of the best action
-                _udot = Lambda.dot(_uvec)  # its scalar utility
+                udot = Lambda.dot(uvec)  # its scalar utility
 
                 if policy is not None:
-                    delta = max(delta, l1distance(_uvec, Uvec[s]))
+                    delta = max(delta, l1distance(uvec, Uvec[s]))
                 else:
-                    delta = max(delta, abs(_udot - Udot[s]))
+                    delta = max(delta, abs(udot - Udot[s]))
 
-                Uvec[s] = _uvec
-                Udot[s] = _udot
+                Uvec[s] = uvec
+                Udot[s] = udot
 
-            if delta < epsilon * (1 - gamma) / gamma:
+            if (newp - lastp).any():
+                print t, ":", newp, Udot
+                lastp[:] = newp
+            if delta < epsilon * (1 - gamma) / gamma: # total expected improvement for adding delta
+                print t, ":", newp, Udot
                 return Uvec
         return Uvec
 
@@ -214,7 +223,7 @@ class VVMdp:
         # Lambda has to be defined
         return np.argmax([self.expected_dot_utility(s, a, U) for a in range(self.nactions)])
 
-    def policy_iteration(self, _Uvec=None):
+    def policy_iteration(self, _Uvec=None, _k = 20, _pi=None):
         """Solve an MDP by policy iteration [Fig. 17.7]. Tries 20 value iterations, then chooses the new best
         actions according to new vectorial values. Test if the policiy has changed and stops if not.
         :rtype: the vectorial value of the fix-point policy
@@ -225,9 +234,12 @@ class VVMdp:
         else:
             U = _Uvec
 
-        pi = {s: random.randint(0, self.nactions - 1) for s in range(self.nstates)}
+        if _pi is None:
+            pi = {s: random.randint(0, self.nactions - 1) for s in range(self.nstates)}
+        else:
+            pi = dict( _pi)
         while True:
-            U = self.value_iteration(epsilon=0.0, policy=pi, k=20, _Uvec=U, _stationary=False)
+            U = self.value_iteration(epsilon=0.0, policy=pi, k=_k, _Uvec=U, _stationary=False)
             unchanged = True
             for s in range(self.nstates):
                 a = self.best_action(s, U)
@@ -235,6 +247,9 @@ class VVMdp:
                     pi[s] = a
                     unchanged = False
             if unchanged:
+                for s in range(self.nstates):
+                    print pi[s],
+                print ""
                 return U
 
     def calculate_advantages_dic(self, _matrix_nd, _IsInitialDistribution, policy):

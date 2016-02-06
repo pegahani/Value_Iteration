@@ -72,6 +72,7 @@ class weng:
             rhs.append(-inequ[0])
 
         prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+        # prob.write("show-weng-Ldominance.lp")
         prob.solve()
 
         result = prob.solution.get_objective_value()
@@ -96,8 +97,8 @@ class weng:
         else:
             for i in range(2 * self.mdp.d, len(inequality_list)):
 
-                devision_list = [np.float32(x / y) for x, y in zip(inequality_list[i], new_constraint)[1:]]
-                if all(x == devision_list[0] for x in devision_list):
+                division_list = [np.float32(x / y) for x, y in zip(inequality_list[i], new_constraint)[1:]]
+                if all(x == division_list[0] for x in division_list):
                     return True
 
         return False
@@ -111,7 +112,6 @@ class weng:
         return vector_noise
 
     def Query(self, _V_best, Q, noise):
-
         bound = [0.0]
 
         if not noise:
@@ -146,8 +146,8 @@ class weng:
 
     def get_best(self, _V_best, Q, _noise):
 
-        #if ( _V_best == Q).all():
-        #    return Q
+        if ( _V_best == Q).all():
+             return Q
 
         if self.pareto_comparison(_V_best, Q):
             return _V_best
@@ -183,6 +183,7 @@ class weng:
 
         gather_query = []
         gather_diff = []
+        self.query_counter_ = 0
 
         n, na, d = self.mdp.nstates, self.mdp.nactions, self.mdp.d
         Uvec_old_nd = np.zeros((n, d), dtype=ftype)
@@ -190,6 +191,9 @@ class weng:
         delta = 0.0  # seems useless and harmless
 
         for t in range(k):
+            print t,
+            if t % 50 == 0:
+                print ""
             Uvec_nd = np.zeros((n, d), dtype=ftype)
 
             for s in range(n):
@@ -211,7 +215,7 @@ class weng:
             #gather_diff.append(linfDistance( [np.array(Uvec_final_d)] , [np.array(exact)], 'chebyshev')[0,0])
             #gather_diff.append(delta) # problem de side effect
 
-            print >> wen, "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1],\
+            print >> wen, "iteration = ", t, "query =", gather_query[-1] , " error= ", gather_diff[-1],\
                 " +" if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
 
             if delta < threshold:

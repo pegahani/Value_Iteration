@@ -21,8 +21,6 @@ except:
 
 ftype = np.float32
 
-prob = cplex.Cplex()
-prob.objective.set_sense(prob.objective.sense.minimize)
 
 
 class avi:
@@ -37,28 +35,31 @@ class avi:
         self.nactions = self.mdp.nactions
         self.Lambda = np.zeros(len(_lambda), dtype=ftype)
         self.Lambda[:] = _lambda
-
         self.Lambda_inequalities = _lambda_inequalities
-        self.query_counter_with_advantages = 0
 
-        global prob
+        self.query_counter_with_advantages = 0
+        self.query_counter_ = 0
+
+        self.prob = cplex.Cplex()
+        self.prob.objective.set_sense(self.prob.objective.sense.minimize)
+
 
         ineqList = self.Lambda_inequalities
         constr, rhs = [], []
         _d = self.mdp.d
 
-        prob.variables.add(lb=[0.0] * _d, ub=[1.0] * _d)
+        self.prob.variables.add(lb=[0.0] * _d, ub=[1.0] * _d)
 
-        prob.set_results_stream(None)
-        prob.set_log_stream(None)
-
+        self.prob.set_results_stream(None)
+        self.prob.set_log_stream(None)
+        # TODO les contraintes de ineq repetent le lb, ub de prob.variables
         for inequ in ineqList:
             c = [[j, 1.0 * inequ[j + 1]] for j in range(0, _d)]
             constr.append(zip(*c))
             rhs.append(-inequ[0])
 
-        prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-        # prob.write("show-Ldominance.lp")
+        self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+        #self.prob.write("show-Ldominance.lp")
 
     def reset(self, _mdp, _lambda, _lambda_inequalities):
         self.mdp = _mdp
@@ -69,7 +70,7 @@ class avi:
 
         self.query_counter_ = 0
         self.query_counter_with_advantages = 0
-        global prob
+
         # reset prob for the new example
 
     # def setStateAction(self):
@@ -292,18 +293,16 @@ class avi:
 
         return all(a > b)
 
-    @staticmethod
-    def cplex_K_dominance_check(_V_best, Q):
+    def cplex_K_dominance_check(self, _V_best, Q):
 
-        global prob
         _d = len(_V_best)
 
         ob = [(j, float(_V_best[j] - Q[j])) for j in range(0, _d)]
-        prob.objective.set_linear(ob)
-        prob.write("show-Ldominance.lp")
-        prob.solve()
+        self.prob.objective.set_linear(ob)
+        # self.prob.write("show-Ldominance.lp")
+        self.prob.solve()
 
-        result = prob.solution.get_objective_value()
+        result = self.prob.solution.get_objective_value()
         if result < 0.0:
             return False
 
@@ -318,11 +317,23 @@ class avi:
         if new_constraint in inequality_list:
             return True
         else:
-            for i in range(2 * self.mdp.d, len(inequality_list)): # TODO why 2 * d ???
+            # TODO correct the range now that the 0 <x<1 are in bounds
+            for i in range(2 * self.mdp.d, len(inequality_list)): # at start, skips the cube defining constraints
 
-                division_list = [np.float32(x / y) for x, y in zip(inequality_list[i], new_constraint)[1:]]
+                division_list = [np.float32(x / y) for x, y in zip(inequality_list[i], new_constraint)[1:]if not y == 0]
                 if all(x == division_list[0] for x in division_list):
                     return True
+                # thisone = True
+                # for j0 in range (self.mdp.d):
+                #     if inequality_list[i][j0] != 0 or new_constraint[j0+1] != 0 :
+                #         break
+                # for j in range (j0 + 1, self.mdp.d):
+                #     if not inequality_list[i][j0] * new_constraint[j + 1] - inequality_list[i][j] * new_constraint[
+                #                 j0 + 1] == 0:
+                #         thisone = False
+                #         break
+                # if thisone == True:
+                #     return thisone
 
         return False
 
@@ -333,8 +344,6 @@ class avi:
         :param noise: True or False
         :return: the prefered vector.  As a side effect, adds a constraint representing the preference in prob.
         """
-
-        global prob
 
         bound = [0.0]
         _d = len(_V_best[1]) # why not self.mdp.d ?
@@ -357,7 +366,7 @@ class avi:
                     c = [(j, float(Q[1][j] - _V_best[1][j])) for j in range(0, _d)]
                 constr.append(zip(*c))
                 rhs.append(0.0)
-                prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+                self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
                 self.Lambda_inequalities.append(new_constraints)
             if keep:
                 return _V_best
@@ -370,7 +379,7 @@ class avi:
             #         c = [(j, float(_V_best[1][j] - Q[1][j])) for j in range(0, _d)]
             #         constr.append(zip(*c))
             #         rhs.append(0.0)
-            #         prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+            #         self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
             #
             #         self.Lambda_inequalities.append(new_constraints)
             #
@@ -382,7 +391,7 @@ class avi:
             #         c = [(j, float(Q[1][j] - _V_best[1][j])) for j in range(0, _d)]
             #         constr.append(zip(*c))
             #         rhs.append(0.0)
-            #         prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+            #         self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
             #
             #         self.Lambda_inequalities.append(new_constraints)
             #
@@ -406,8 +415,6 @@ class avi:
 
     def Query(self, _V_best, Q, noise):
 
-        global prob
-
         bound = [0.0]
         _d = len(_V_best)
 
@@ -418,10 +425,10 @@ class avi:
             if self.Lambda.dot(_V_best) > self.Lambda.dot(Q):
                 new_constraints = bound + map(operator.sub, _V_best, Q)
                 if not self.already_exists(self.Lambda_inequalities, new_constraints):
-                    c = [(j, float(Q[j] - _V_best[j])) for j in range(0, _d)]
+                    c = [(j, _V_best[j] - float(Q[j])) for j in range(0, _d)]
                     constr.append(zip(*c))
                     rhs.append(0.0)
-                    prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+                    self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
 
                     self.Lambda_inequalities.append(new_constraints)
 
@@ -433,7 +440,7 @@ class avi:
                     c = [(j, float(Q[j] - _V_best[j])) for j in range(0, _d)]
                     constr.append(zip(*c))
                     rhs.append(0.0)
-                    prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+                    self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
 
                     self.Lambda_inequalities.append(new_constraints)
 
@@ -568,21 +575,26 @@ class avi:
         :param threshold: the stopping criteria value
         :param exact: the (hidden) value used for simulating user preferences. Used here to estimate
          the distance of the computed value function to the best (?) solution.
-        :return: it lists f d-dimensional vectors after asking any query to the user. the last vector in list is the
+        :return: it lists of d-dimensional vectors after asking any query to the user. the last vector in list is the
         optimal value solution of algorithm.
         """
 
+        wen = open("output_AIweng" + ".txt", "w")
         gather_query = []
         gather_diff = []
+        self.query_counter_ = 0
 
         n, na, d =self.mdp.nstates , self.mdp.nactions, self.mdp.d
         Uvec_old_nd = np.zeros((n,d), dtype=ftype)
 
         delta = 0.0
-        query_count = self.query_counter_ # TODO queries and query_count are unused
-        queries = []
+        # query_count = self.query_counter_ # TODO queries and query_count are unused
+        # queries = []
 
         for t in range(k):
+            print t,
+            if t % 50 == 0:
+                print ""
             Uvec_nd = np.zeros((n, d), dtype=ftype)
 
             for s in range(n):
@@ -590,7 +602,7 @@ class avi:
                 for a in range(na):
                     # compute Q function
                     Q_d = self.mdp.get_vec_Q(s, a, Uvec_old_nd)
-                    _V_best_d = self.get_best(_V_best_d, Q_d, _noise=noise)
+                    _V_best_d = self.get_best(_V_best_d, Q_d, _noise=noise) # may change self.query_counter_
 
                 Uvec_nd[s] = _V_best_d
 
@@ -601,21 +613,18 @@ class avi:
             gather_query.append(self.query_counter_)
             gather_diff.append(abs(np.dot(self.get_Lambda(), Uvec_final_d) - np.dot(self.get_Lambda(), exact)))
 
-            if query_count != self.query_counter_:
-                queries.append(query_count)
-                query_count = self.query_counter_
+            print >> wen, "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1],\
+                " +" if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
+
 
             if delta <threshold:
-                queries.append(query_count)
-                print 'iteration', t
+                # queries.append(query_count)
                 return(Uvec_final_d, gather_query, gather_diff)
-
             else:
                 Uvec_old_nd = Uvec_nd
 
-        queries.append(query_count)
+        self.prob.write("show-Ldominance.lp")
 
-        print 'iteraion', t
         return(Uvec_final_d ,gather_query, gather_diff)
 
     @staticmethod
@@ -729,8 +738,12 @@ class avi:
     def interior_easy_points(dim):
         # dim = len(self.points[0])
         l = []
+        s = 0
         for i in range(dim):
             l.append(random.uniform(0.0, 1.0))
+            s += l[i]
+        for i in range(dim):
+            l[i] /= s
         return l
 
 

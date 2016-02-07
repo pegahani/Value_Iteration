@@ -52,6 +52,8 @@ class avi:
 
         self.prob.set_results_stream(None)
         self.prob.set_log_stream(None)
+        self.prob.set_warning_stream(None)
+
         # TODO les contraintes de ineq repetent le lb, ub de prob.variables
         for inequ in ineqList:
             c = [[j, 1.0 * inequ[j + 1]] for j in range(0, _d)]
@@ -291,7 +293,7 @@ class avi:
         assert len(a) == len(b), \
             "two vectors don't have the same size"
 
-        return all(a > b)
+        return all(a >= b)
 
     def cplex_K_dominance_check(self, _V_best, Q):
 
@@ -299,7 +301,7 @@ class avi:
 
         ob = [(j, float(_V_best[j] - Q[j])) for j in range(0, _d)]
         self.prob.objective.set_linear(ob)
-        # self.prob.write("show-Ldominance.lp")
+        self.prob.write("show-Ldominance.lp")
         self.prob.solve()
 
         result = self.prob.solution.get_objective_value()
@@ -318,7 +320,8 @@ class avi:
             return True
         else:
             # TODO correct the range now that the 0 <x<1 are in bounds
-            for i in range(2 * self.mdp.d, len(inequality_list)): # at start, skips the cube defining constraints
+            # for i in range(2 * self.mdp.d, len(inequality_list)): # at start, skips the cube defining constraints
+            for i in range(len(inequality_list)):
 
                 division_list = [np.float32(x / y) for x, y in zip(inequality_list[i], new_constraint)[1:]if not y == 0]
                 if all(x == division_list[0] for x in division_list):
@@ -431,7 +434,9 @@ class avi:
                     self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
 
                     self.Lambda_inequalities.append(new_constraints)
-
+                    print "Contraintes" + str(len(self.Lambda_inequalities)),
+                    print "prob", self.prob.linear_constraints.get_num()
+                    self.query_counter_ += 1
                 return _V_best
 
             else:
@@ -443,7 +448,9 @@ class avi:
                     self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
 
                     self.Lambda_inequalities.append(new_constraints)
-
+                    print "Contraintes" + str(len(self.Lambda_inequalities)),
+                    print "prob", self.prob.linear_constraints.get_num()
+                    self.query_counter_ += 1
                 return Q
         else:
             noise_vect = self.generate_noise(len(self.Lambda), noise)
@@ -500,8 +507,6 @@ class avi:
             return _V_best
 
         query = self.Query(_V_best, Q, _noise)
-        # if this query is asked for value iteration with advantages
-        self.query_counter_ += 1
 
         return query
 
@@ -559,7 +564,7 @@ class avi:
             if delta < min_change:
                 return currenvalue_d, gather_query, gather_diff
             else:
-                previousvalue_d = currenvalue_d
+                previousvalue_d = currenvalue_d.copy()
 
         print >> log,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1],\
             " +" if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
@@ -588,8 +593,6 @@ class avi:
         Uvec_old_nd = np.zeros((n,d), dtype=ftype)
 
         delta = 0.0
-        # query_count = self.query_counter_ # TODO queries and query_count are unused
-        # queries = []
 
         for t in range(k):
             print t,
@@ -613,15 +616,15 @@ class avi:
             gather_query.append(self.query_counter_)
             gather_diff.append(abs(np.dot(self.get_Lambda(), Uvec_final_d) - np.dot(self.get_Lambda(), exact)))
 
-            print >> wen, "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1],\
-                " +" if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
+            print >> wen, "iteration = ", t, "query =", gather_query[-1] , " error= ", gather_diff[-1],\
+                " +" if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "
 
 
             if delta <threshold:
                 # queries.append(query_count)
                 return(Uvec_final_d, gather_query, gather_diff)
             else:
-                Uvec_old_nd = Uvec_nd
+                Uvec_old_nd = Uvec_nd.copy()
 
         self.prob.write("show-Ldominance.lp")
 

@@ -31,6 +31,7 @@ class weng:
         self.Lambda_inequalities = _lambda_inequalities
 
         self.query_counter_ = 0
+        self.wen = open("output_weng" + ".txt", "w")
 
     def get_initial_distribution(self):
         return self.mdp.initial_states_distribution()
@@ -48,7 +49,7 @@ class weng:
         assert len(a) == len(b), \
             "two vectors don't have the same size"
 
-        return all(a > b)
+        return all(a >= b)
 
     def cplex_K_dominance_check(self, _V_best, Q):
 
@@ -63,6 +64,7 @@ class weng:
 
         prob.set_results_stream(None)
         prob.set_log_stream(None)
+        prob.set_warning_stream(None)
 
         constr, rhs = [], []
 
@@ -72,13 +74,14 @@ class weng:
             rhs.append(-inequ[0])
 
         prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-        # prob.write("show-weng-Ldominance.lp")
+        prob.write("show-weng-Ldominance.lp")
+        # print "nb contraintes", prob.linear_constraints.get_num()
         prob.solve()
 
         result = prob.solution.get_objective_value()
         if result < 0.0:
             return False
-
+        print >> self.wen, _V_best - Q, ">> 0"
         return True
 
     def is_already_exist(self, inequality_list, new_constraint):
@@ -119,14 +122,16 @@ class weng:
                 new_constraints = bound+map(operator.sub, _V_best, Q)
                 #if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
                 self.Lambda_inequalities.append(new_constraints)
-
+                print >> self.wen,  "Constrainte", self.query_counter_, _V_best - Q, "|> 0"
+                # print "#ineq", len(self.Lambda_inequalities)
                 return _V_best
 
             else:
                 new_constraints = bound+map(operator.sub, Q, _V_best)
                 #if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
                 self.Lambda_inequalities.append(new_constraints)
-
+                print >> self.wen, "Constrainte", self.query_counter_, Q - _V_best, "|> 0"
+                #print "#ineq", len(self.Lambda_inequalities)
                 return Q
         else:
             noise_vect = self.generate_noise(len(self.Lambda), noise)
@@ -161,8 +166,8 @@ class weng:
         elif self.cplex_K_dominance_check(_V_best, Q):
             return _V_best
 
-        query = self.Query(_V_best, Q, _noise)
         self.query_counter_ += 1
+        query = self.Query(_V_best, Q, _noise)
 
         return query
 
@@ -179,7 +184,7 @@ class weng:
         optimal value solution of algorithm.
         """
 
-        wen = open("output_weng" + ".txt", "w")
+
 
         gather_query = []
         gather_diff = []
@@ -192,8 +197,8 @@ class weng:
 
         for t in range(k):
             print t,
-            if t % 50 == 0:
-                print ""
+            # if t % 50 == 0:
+            #     print ""
             Uvec_nd = np.zeros((n, d), dtype=ftype)
 
             for s in range(n):
@@ -215,16 +220,16 @@ class weng:
             #gather_diff.append(linfDistance( [np.array(Uvec_final_d)] , [np.array(exact)], 'chebyshev')[0,0])
             #gather_diff.append(delta) # problem de side effect
 
-            print >> wen, "iteration = ", t, "query =", gather_query[-1] , " error= ", gather_diff[-1],\
-                " +" if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
+            print >> self.wen, "iteration = ", t, "query =", gather_query[-1] , " error= ", gather_diff[-1],\
+                " +" if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "
 
             if delta < threshold:
                 return Uvec_final_d, gather_query, gather_diff
             else:
-                Uvec_old_nd = Uvec_nd
+                Uvec_old_nd = Uvec_nd.copy()
 
-        print >> wen,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1],\
-        "+ " if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
+        print >> self. wen,  "iteration = ", t, "query =", gather_query[-1] , " error= ", gather_diff[-1],\
+        "+ " if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "
 
         return(Uvec_final_d, gather_query, gather_diff)
 

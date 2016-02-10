@@ -59,8 +59,10 @@ class weng:
         prob = cplex.Cplex()
         prob.objective.set_sense(prob.objective.sense.minimize)
 
-        ob = [float(_V_best[j] - Q[j]) for j in range(0, _d)]
-        prob.variables.add(obj=ob, lb=[0.0] * _d, ub=[1.0] * _d)
+        ob = [(j, float(_V_best[j] - Q[j])) for j in range(0, _d)]
+        # prob.variables.add(obj=ob, lb=[0.0] * _d, ub=[1.0] * _d)
+        prob.variables.add(lb=[0.0] * _d, ub=[1.0] * _d)
+        prob.objective.set_linear(ob)
 
         prob.set_results_stream(None)
         prob.set_log_stream(None)
@@ -122,6 +124,7 @@ class weng:
                 new_constraints = bound+map(operator.sub, _V_best, Q)
                 #if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
                 self.Lambda_inequalities.append(new_constraints)
+                print "Contraintes" + str(len(self.Lambda_inequalities))
                 print >> self.wen,  "Constrainte", self.query_counter_, _V_best - Q, "|> 0"
                 # print "#ineq", len(self.Lambda_inequalities)
                 return _V_best
@@ -130,6 +133,7 @@ class weng:
                 new_constraints = bound+map(operator.sub, Q, _V_best)
                 #if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
                 self.Lambda_inequalities.append(new_constraints)
+                print "Contraintes" + str(len(self.Lambda_inequalities))
                 print >> self.wen, "Constrainte", self.query_counter_, Q - _V_best, "|> 0"
                 #print "#ineq", len(self.Lambda_inequalities)
                 return Q
@@ -166,8 +170,8 @@ class weng:
         elif self.cplex_K_dominance_check(_V_best, Q):
             return _V_best
 
-        self.query_counter_ += 1
         query = self.Query(_V_best, Q, _noise)
+        self.query_counter_ += 1
 
         return query
 
@@ -197,8 +201,8 @@ class weng:
 
         for t in range(k):
             print t,
-            # if t % 50 == 0:
-            #     print ""
+            if t % 50 == 0:
+                print ""
             Uvec_nd = np.zeros((n, d), dtype=ftype)
 
             for s in range(n):

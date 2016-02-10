@@ -2,22 +2,27 @@ from Weng import weng
 import m_mdp
 from advantage_iteration import avi
 from matplotlib import pylab as plt
+import pickle
 
 if __name__ == '__main__':
 
     _d = 3
 
-    # _Lambda_inequalities = avi.generate_inequalities(_d)
-    _lambda_rand = avi.interior_easy_points(_d)
-    print _lambda_rand
+    # _lambda_rand = avi.interior_easy_points(_d)
+    # pickle.dump(_lambda_rand,open("lambda.dmp", 'w'))
     # m = m_mdp.make_grid_VVMDP(_lambda_rand, n=3)
 
-    # m = m_mdp.make_grid_VVMDP()
 
     _state, _action = 4, 5
-    m = m_mdp.make_simulate_mdp_Yann(_state, _action, _lambda_rand, None)
+    # m = m_mdp.make_simulate_mdp_Yann(_state, _action, _lambda_rand, None)
+    # # Uvec = m.value_iteration(epsilon=0.00001)
+    # m.save('mdp.dmp')
+    m = m_mdp.reload('mdp.dmp')
+    _lambda_rand = pickle.load(open("lambda.dmp", 'r'))
+    print _lambda_rand
+
     Uvec = m.value_iteration(epsilon=0.00001)
-    #Uvec = m.policy_iteration()  # returns the matrix of vectorial values of the best policy reached, starting from
+    # Uvec = m.policy_iteration()  # returns the matrix of vectorial values of the best policy reached, starting from
     # # values all equal to 0 and iterating until actions dont change any more
     # print Uvec
     #
@@ -29,17 +34,17 @@ if __name__ == '__main__':
     # print Uvec - Uvec1
 
     exact = m.initial_states_distribution().dot(Uvec)  # expected vectorial value for this best policy
-
-    # w = avi(m, _lambda_rand, _Lambda_inequalities)
+    #
+    # # w = avi(m, _lambda_rand, _Lambda_inequalities)
     w = avi(m, _lambda_rand, [])
-    # sol_avi = w.value_iteration_with_advantages(limit=100000, noise=None,
-    #                                         cluster_threshold=0.0001, min_change=0.001, exact=exact)
-    # print 'avi error', sol_avi[2][len(sol_avi[2])-1]
+    # # sol_avi = w.value_iteration_with_advantages(limit=100000, noise=None,
+    # #                                         cluster_threshold=0.0001, min_change=0.001, exact=exact)
+    # # print 'avi error', sol_avi[2][len(sol_avi[2])-1]
     sol_AIweng = w.value_iteration_weng(k=100000, noise= None, threshold=0.001, exact = exact)
     print 'AIweng error', sol_AIweng[2][len(sol_AIweng[2])-1]
     print "Queries", sol_AIweng[1]
 
-    # w = weng(m, _lambda_rand, _Lambda_inequalities)
+    # # w = weng(m, _lambda_rand, _Lambda_inequalities)
     w = weng(m, _lambda_rand, [])
     sol_weng = w.value_iteration_weng(k=100000, noise= None, threshold=0.001, exact = exact)
 

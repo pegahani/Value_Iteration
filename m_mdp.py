@@ -5,6 +5,7 @@ import math
 import numpy as np
 from toolz import first
 import random
+import pickle
 
 try:
     from scipy.sparse import csr_matrix, dok_matrix
@@ -302,6 +303,35 @@ class VVMdp:
 
 
 # ********************************************************************************************
+    def save(self, nomfich):
+        fic = open(nomfich, 'w')
+        outstream = pickle.Pickler(fic)
+        outstream.dump(self)
+        # outstream.dump(self.d)
+        # outstream.dump( self.nstates)
+        # outstream.dump( self.nactions)
+        # outstream.dump( self.states)
+        # outstream.dump( self.actions)
+        # outstream.dump( self.stateInd)
+        # outstream.dump( self.actionInd)
+        # outstream.dump( self.startingStateInd)
+        # outstream.dump( self.rewards)
+        # outstream.dump( self.transitions)
+        # outstream.dump( self.rev_transitions)
+        # outstream.dump( self.auto_probability)
+        # outstream.dump( self.gamma)
+        # outstream.dump( self.rmax)
+        # outstream.dump( self.Lambda)
+        # outstream.dump( self.E_test)
+        fic.close()
+
+def reload(nomfich):
+    fic = open(nomfich, 'r')
+    instream = pickle.Unpickler(fic)
+    m = instream.load()
+    fic.close()
+    return m
+
 
 def make_simulate_mdp_Yann(n_states, n_actions, _lambda, _r=None):
     """ Builds a random MDP.

@@ -62,6 +62,8 @@ class avi:
 
         self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
         #self.prob.write("show-Ldominance.lp")
+        self.wen = open("output_AIweng" + ".txt", "w")
+
 
     def reset(self, _mdp, _lambda, _lambda_inequalities):
         self.mdp = _mdp
@@ -307,7 +309,7 @@ class avi:
         result = self.prob.solution.get_objective_value()
         if result < 0.0:
             return False
-
+        print >> self.wen, _V_best - Q, ">> 0"
         return True
 
     def already_exists(self, inequality_list, new_constraint):
@@ -428,14 +430,14 @@ class avi:
             if self.Lambda.dot(_V_best) > self.Lambda.dot(Q):
                 new_constraints = bound + map(operator.sub, _V_best, Q)
                 if not self.already_exists(self.Lambda_inequalities, new_constraints):
-                    c = [(j, _V_best[j] - float(Q[j])) for j in range(0, _d)]
+                    c = [(j, float(_V_best[j] - Q[j])) for j in range(0, _d)]
                     constr.append(zip(*c))
                     rhs.append(0.0)
                     self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
 
                     self.Lambda_inequalities.append(new_constraints)
-                    print "Contraintes" + str(len(self.Lambda_inequalities)),
-                    print "prob", self.prob.linear_constraints.get_num()
+                    print "Contraintes" + str(len(self.Lambda_inequalities))
+                    print >> self.wen,  "Constrainte", self.query_counter_, _V_best - Q, "|> 0"
                     self.query_counter_ += 1
                 return _V_best
 
@@ -448,8 +450,8 @@ class avi:
                     self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
 
                     self.Lambda_inequalities.append(new_constraints)
-                    print "Contraintes" + str(len(self.Lambda_inequalities)),
-                    print "prob", self.prob.linear_constraints.get_num()
+                    print "Contraintes" + str(len(self.Lambda_inequalities))
+                    print >> self.wen, "Constrainte", self.query_counter_, Q - _V_best, "|> 0"
                     self.query_counter_ += 1
                 return Q
         else:
@@ -558,7 +560,7 @@ class avi:
             gather_query.append(self.query_counter_with_advantages)
             gather_diff.append(abs(self.Lambda.dot(currenvalue_d) - self.Lambda.dot(exact)))
 
-            print >> log,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1], \
+            print >> self.wen,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1], \
                 " +" if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
 
             if delta < min_change:
@@ -566,7 +568,7 @@ class avi:
             else:
                 previousvalue_d = currenvalue_d.copy()
 
-        print >> log,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1],\
+        print >> self.wen,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1],\
             " +" if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
 
         # noinspection PyUnboundLocalVariable
@@ -584,7 +586,7 @@ class avi:
         optimal value solution of algorithm.
         """
 
-        wen = open("output_AIweng" + ".txt", "w")
+        # wen = open("output_AIweng" + ".txt", "w")
         gather_query = []
         gather_diff = []
         self.query_counter_ = 0
@@ -616,7 +618,7 @@ class avi:
             gather_query.append(self.query_counter_)
             gather_diff.append(abs(np.dot(self.get_Lambda(), Uvec_final_d) - np.dot(self.get_Lambda(), exact)))
 
-            print >> wen, "iteration = ", t, "query =", gather_query[-1] , " error= ", gather_diff[-1],\
+            print >> self.wen, "iteration = ", t, "query =", gather_query[-1] , " error= ", gather_diff[-1],\
                 " +" if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "
 
 

@@ -31,23 +31,23 @@ Object variables (use with self.xxx):
 
 
 class VVMdp:
+
     def __init__(self,
                  _startingstate,
                  _transitions,  # dictionary of key:values   (s,a,s):proba
                  _rewards,  # dictionary of key:values   s: vector of rewards
-                 _gamma=.9, _lambda=None):
+                 _gamma=.9, _lambda = None):
 
-        # self._lambda = _lambda # TODO fl that was a typo: self._lambda unused in the file
         """
         :type _lambda: list of size d
         """
         try:
             states = sorted(
-                    {st for (s, a, s2) in _transitions.iterkeys() for st in (s, s2)}
+                {st for (s, a, s2) in _transitions.iterkeys() for st in (s, s2)}
             )
 
             actions = sorted(
-                    {a for (s, a, s2) in _transitions.iterkeys()}
+                {a for (s, a, s2) in _transitions.iterkeys()}
             )
 
             n, na = len(states), len(actions)
@@ -56,7 +56,7 @@ class VVMdp:
             actionInd = {a: i for i, a in enumerate(actions)}
 
             assert set(_startingstate).issubset(stateInd.keys()), \
-                "initial states are not subset of total states"
+                 "initial states are not subset of total states"
 
             self.startingStateInd = [stateInd[x] for x in _startingstate]
 
@@ -64,7 +64,7 @@ class VVMdp:
             assert all(d == len(np.array(v, dtype=ftype)) for v in _rewards.itervalues()), \
                 "incorrect reward vectors"
 
-            assert set(_rewards.keys()).issubset(states), \
+            assert set(_rewards.keys()).issubset(states),\
                 "states appearing in rewards should also appear in transitions"
 
         except (ValueError, TypeError):
@@ -82,7 +82,7 @@ class VVMdp:
         for s, rv in _rewards.iteritems():
             rewards[stateInd[s], :] = rv
 
-        self.rmax = np.max([sum(abs(rewards[s, :])) for s in range(n)])
+        self.rmax = np.max( [sum(abs(rewards[s,:])) for s in range(n)] )
 
         transitions = np.array(
                 [[dok_matrix((1, n), dtype=ftype) for _ in actions] for _ in states], dtype=object)
@@ -95,16 +95,16 @@ class VVMdp:
             rev_transitions[si2].add(si)
 
         for s, a in product(range(n), range(na)):
-            transitions[s, a] = transitions[s, a].tocsr()
-            assert 0.99 <= transitions[s, a].sum() <= 1.01, "probability transitions should sum up to 1"
+            transitions[s,a] = transitions[s,a].tocsr()
+            assert 0.99 <= transitions[s,a].sum() <= 1.01, "probability transitions should sum up to 1"
 
         # autoprobability[s,a] = P(s|s,a)
-        self.auto_probability = np.array([[transitions[s, a][0, s] for a in range(na)] for s in range(n)], dtype=ftype)
+        self.auto_probability = np.array( [[transitions[s,a][0,s] for a in range(na)] for s in range(n)] ,dtype=ftype )
 
         # copy local variables in object variables
-        self.states, self.actions, self.nstates, self.nactions, self.d = states, actions, n, na, d
-        self.stateInd, self.actionInd = stateInd, actionInd
-        self.rewards, self.transitions, self.rev_transitions = rewards, transitions, rev_transitions
+        self.states , self.actions , self.nstates , self.nactions, self.d = states,actions,n,na,d
+        self.stateInd,self.actionInd = stateInd,actionInd
+        self.rewards , self.transitions, self.rev_transitions = rewards , transitions, rev_transitions
         self.gamma = _gamma
 
         # E_test = np.zeros((nstates*na, nstates), dtype=ftype)
@@ -112,7 +112,7 @@ class VVMdp:
 
         for s in range(n):
             for a in range(na):
-                E_test[s * na + a, :] = [transitions[s, a][0, i] for i in range(n)]
+                E_test[s*na+a, :] = [ transitions[s,a][0,i] for i in range(n) ]
 
         self.E_test = E_test
 
@@ -268,6 +268,7 @@ class VVMdp:
         n, na = self.nstates, self.nactions
         advantage_dic = {}
         init_distribution = self.initial_states_distribution()
+
         for s in range(n):
             for a in range(na):
                 advantage_d = self.get_vec_Q(s, a, _matrix_nd) - _matrix_nd[s]
@@ -362,24 +363,23 @@ def make_simulate_mdp_Yann(n_states, n_actions, _lambda, _r=None):
             _gamma=0.95,
             _lambda=_lambda)
 
-
 # ********************************************************************************************
 
 def make_grid_VVMDP(_lambda, n=2):
-    _t = {((i, j), 'v', (min(i + 1, n - 1), j)): 0.9 for i, j in product(range(n), range(n))}
-    _t.update({((i, j), 'v', (max(i - 1, 0), j)): 0.1 for i, j in product(range(n), range(n))})
-    _t.update({((i, j), '^', (max(i - 1, 0), j)): 0.9 for i, j in product(range(n), range(n))})
-    _t.update({((i, j), '^', (min(i + 1, n - 1), j)): 0.1 for i, j in product(range(n), range(n))})
-    _t.update({((i, j), '>', (i, min(j + 1, n - 1))): 0.9 for i, j in product(range(n), range(n))})
-    _t.update({((i, j), '>', (i, max(j - 1, 0))): 0.1 for i, j in product(range(n), range(n))})
-    _t.update({((i, j), '<', (i, max(j - 1, 0))): 0.9 for i, j in product(range(n), range(n))})
-    _t.update({((i, j), '<', (i, min(j + 1, n - 1))): 0.1 for i, j in product(range(n), range(n))})
-    _t.update({((i, j), 'X', (i, j)): 1 for i, j in product(range(n), range(n))})
+    _t =       { ((i,j),'v',(min(i+1,n-1),j)):0.9 for i,j in product(range(n),range(n)) }
+    _t.update( { ((i,j),'v',(max(i-1,0),j)):0.1 for i,j in product(range(n),range(n)) } )
+    _t.update( { ((i,j),'^',(max(i-1,0),j)):0.9 for i,j in product(range(n),range(n)) } )
+    _t.update( { ((i,j),'^',(min(i+1,n-1),j)):0.1 for i,j in product(range(n),range(n)) } )
+    _t.update( { ((i,j),'>',(i,min(j+1,n-1))):0.9 for i,j in product(range(n),range(n)) } )
+    _t.update( { ((i,j),'>',(i,max(j-1,0))):0.1 for i,j in product(range(n),range(n)) } )
+    _t.update( { ((i,j),'<',(i,max(j-1,0))):0.9 for i,j in product(range(n),range(n)) } )
+    _t.update( { ((i,j),'<',(i,min(j+1,n-1))):0.1 for i,j in product(range(n),range(n)) } )
+    _t.update( { ((i,j),'X',(i,j)):1 for i,j in product(range(n),range(n)) } )
 
-    _r = {(i, j): [0.0, 0.0] for i, j in product(range(n), range(n))}
-    _r[(n - 1, 0)] = [1.0, 0.0]
-    _r[(0, n - 1)] = [0.0, 1.0]
-    _r[(n - 1, n - 1)] = [1.0, 1.0]
+    _r = { (i,j):[0.0,0.0] for i,j in product(range(n),range(n))}
+    _r[(n-1,0)] = [1.0,0.0]
+    _r[(0,n-1)] = [0.0,1.0]
+    _r[(n-1,n-1)] = [1.0,1.0]
 
     gridMdp = VVMdp(
             _startingstate={(0, 1)},  # {(0,0)},
@@ -388,3 +388,6 @@ def make_grid_VVMDP(_lambda, n=2):
             _lambda= _lambda # TODO the first argument of the function make_grid_VVMDP is unused
     )
     return gridMdp
+
+
+

@@ -1,4 +1,3 @@
-from Tkinter import *
 import collections
 import copy
 from operator import add
@@ -35,16 +34,14 @@ class avi:
         self.nactions = self.mdp.nactions
         self.Lambda = np.zeros(len(_lambda), dtype=ftype)
         self.Lambda[:] = _lambda
+
         self.Lambda_inequalities = _lambda_inequalities
-
         self.query_counter_with_advantages = 0
-        self.query_counter_ = 0
 
+        """initialize linear programming as a minimization problem"""
         self.prob = cplex.Cplex()
         self.prob.objective.set_sense(self.prob.objective.sense.minimize)
 
-
-        ineqList = self.Lambda_inequalities
         constr, rhs = [], []
         _d = self.mdp.d
 
@@ -54,16 +51,20 @@ class avi:
         self.prob.set_log_stream(None)
         self.prob.set_warning_stream(None)
 
-        # TODO les contraintes de ineq repetent le lb, ub de prob.variables
-        for inequ in ineqList:
-            c = [[j, 1.0 * inequ[j + 1]] for j in range(0, _d)]
-            constr.append(zip(*c))
-            rhs.append(-inequ[0])
+        """add sum(lambda)_i = 1 on problem constraints"""
+        c = [[j, 1.0] for j in range(0,_d)]
+        constr.append(zip(*c))
+        rhs.append(1)
 
-        self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-        #self.prob.write("show-Ldominance.lp")
+        """inside this function E means the added constraint is an equality equation
+        there are three options for sense:
+        G: constraint is greater than rhs,
+        L: constraint is lesser than rhs,
+        E: constraint is equal than rhs"""
+
+        self.prob.linear_constraints.add(lin_expr=constr, senses="E" * len(constr), rhs=rhs)
+        self.prob.write("show-Ldominance.lp")
         self.wen = open("output_AIweng" + ".txt", "w")
-
 
     def reset(self, _mdp, _lambda, _lambda_inequalities):
         self.mdp = _mdp
@@ -78,8 +79,8 @@ class avi:
         # reset prob for the new example
 
     # def setStateAction(self):
-    #     self.nstates = self.mdp.nstates
-    #     self.nactions = self.mdp.nactions
+    #     self.n = self.mdp.nstates
+    #     self.na = self.mdp.nactions
 
     def get_Lambda(self):
         return self.mdp.get_lambda()
@@ -105,7 +106,7 @@ class avi:
         points_array = np.zeros((len(_advantages_dict), d),
                                 dtype=ftype)  # array of vectors of size d (the advantages to cluster)
         dic_labels = {}  # array of (s,a) pairs. The index in points_array is also the index of the (s,a) pair
-        # providing this advantage.
+                        # providing this advantage.
 
         counter = 0
         for key, val in _advantages_dict.iteritems():
@@ -113,7 +114,7 @@ class avi:
             dic_labels[counter] = key
             counter += 1
 
-            # calls scipy.cluster.hierarchy
+        # calls scipy.cluster.hierarchy
         z = hac.linkage(points_array, method='complete', metric='cosine')
         tol = -1e-16
         z.real[z.real < tol] = 0.0
@@ -130,8 +131,59 @@ class avi:
 
         return cluster_advantages_dic
 
+    def make_convex_hull(self, _dic, _label):
+        # change dictionary types to array and extract lists without their (s,a) pairs
+        _points = []
+        _pairs = []
+
+        diclist = []
+        for key, val in _dic.iteritems():
+            diclist.append((key, val))
+
+        if _label == 'V':
+            for val in _dic.itervalues():
+                _points.append(np.float32(val[1]))
+        else:
+            for key, val in _dic.iteritems():
+                _points.append(np.float32(val))
+                _pairs.append(key)
+
+        _points = np.array(_points)
+
+        try:
+            #TODO change return value type
+            hull = ConvexHull(_points)
+            hull_vertices = hull.vertices
+            hull_points = _points[hull_vertices, :]
+        except scipy.spatial.qhull.QhullError:
+            print 'convex hull is not available for label:', _label
+            hull_points = _points
+
+        return hull_points
+
+    def keys_of_value(self, dct, _vector):
+
+        """
+        :param dct: dictionary of (s,a) key and d-dimensional value vectors
+        :param _vector: a vector of dimension d
+        :return: the key of given dictionary
+        """
+
+        for k, v in dct.iteritems():
+            if (ftype(v) == ftype(_vector)).all():
+                del dct[k]
+                return k
+
+    def get_advantages(self, _clustered_results_val):
+
+        l = []
+        for val in _clustered_results_val.itervalues():
+            l.append(val)
+        return np.array(l)
+
     def justify_cluster(self, _vectors_list, _clustered_pairs_vectors):
         """
+
         this function get list of vectors of d dimension and a dictionary of pairs and vectors.
         it reassigns pairs to vectors.
 
@@ -248,7 +300,7 @@ class avi:
 
         return {}
 
-    def declare_policies(self, _policies, pi_p, matrix_nd):
+    def declare_policies(self, _policies, pi_p):
         """
         this function receives dictionary of state action pairs an related vector value improvements
         and returns back dictionary of policies related to given pairs and the same vector value improvement
@@ -257,7 +309,7 @@ class avi:
         :param pi_p: the given policy without counting improvement in accounts
         :return: dictionary of new policies and related improved vector values
         """
-        # TODO matrix_nd is unused
+
         _pi_p = pi_p.copy()
         V_append_d = np.zeros(self.mdp.d, dtype=ftype)
 
@@ -275,6 +327,8 @@ class avi:
                     #    print 'dakhele else V_append_d = ', V_append_d
 
             # V_append_d = np.zeros(self.mdp.d, dtype=ftype)
+
+            #TODO check it again
 
             new_policies[k] = (_pi_p,np.float32(operator.add(policy[1], V_append_d)) ) #np.float32(policy[1]))
 
@@ -342,6 +396,13 @@ class avi:
 
         return False
 
+    def generate_noise(self, _d, _noise_deviation):
+        vector_noise = np.zeros(_d, dtype=ftype)
+        for i in range(_d):
+            vector_noise[i] = np.random.normal(0.0, _noise_deviation)
+
+        return vector_noise
+
     def Query_policies(self, _V_best, Q, noise):
         """ simulates a user query, which must answer if _V_best is prefered to Q or the rverse
         :param _V_best: one dimensional vector of size d
@@ -351,13 +412,11 @@ class avi:
         """
 
         bound = [0.0]
-        _d = len(_V_best[1]) # why not self.mdp.d ?
+        _d = len(_V_best[1])
 
         constr = []
         rhs = []
 
-        # TODO Changed : newconstraints is the same whether keep is True or not, while (due to c) the constraint added
-        # to prob is not the same, and in the noisy case it is not the same. An error on newconstraints ?
         if not noise:
             keep = (self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]))
             if keep:
@@ -378,96 +437,32 @@ class avi:
             else:
                 return Q
 
-            # if self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]):
-            #     new_constraints = bound + map(operator.sub, _V_best[1], Q[1])
-            #     if not self.already_exists(self.Lambda_inequalities, new_constraints):
-            #         c = [(j, float(_V_best[1][j] - Q[1][j])) for j in range(0, _d)]
-            #         constr.append(zip(*c))
-            #         rhs.append(0.0)
-            #         self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-            #
-            #         self.Lambda_inequalities.append(new_constraints)
-            #
-            #     return _V_best
-            #
-            # else:
-            #     new_constraints = bound + map(operator.sub, _V_best[1], Q[1])
-            #     if not self.already_exists(self.Lambda_inequalities, new_constraints):
-            #         c = [(j, float(Q[1][j] - _V_best[1][j])) for j in range(0, _d)]
-            #         constr.append(zip(*c))
-            #         rhs.append(0.0)
-            #         self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-            #
-            #         self.Lambda_inequalities.append(new_constraints)
-            #
-            #     return Q
+        #noise_vect = self.generate_noise(len(self.Lambda), noise)
+        #V_best_noisy = noise_vect + _V_best[1]
 
-        noise_vect = self.generate_noise(len(self.Lambda), noise)
-
-        print 'generate noise', noise_vect
-        #Lambda_noisy = noise_vect + self.Lambda
-        V_best_noisy = noise_vect + _V_best[1]
+        noise_value = random.gauss(0, noise)
 
         #if Lambda_noisy.dot(_V_best[1]) > Lambda_noisy.dot(Q[1]):
-        if self.Lambda.dot(V_best_noisy)>self.Lambda.dot(Q[1]):
+        if self.Lambda.dot(_V_best[1])-self.Lambda.dot(Q[1]) + noise_value > 0:
             #print >>log, "correct response",self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]), "wrong response",True
+
+            c = [(j, float(_V_best[1][j] - Q[1][j])) for j in range(0, _d)]
+            constr.append(zip(*c))
+            rhs.append(0.0)
+            self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+
             self.Lambda_inequalities.append(bound+map(operator.sub, _V_best[1], Q[1]))
             return _V_best
         else:
             #print >>log, "correct response",self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]), "wrong response",False
+
+            c = [(j, float(Q[1][j] - _V_best[1][j])) for j in range(0, _d)]
+            constr.append(zip(*c))
+            rhs.append(0.0)
+            self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+
             self.Lambda_inequalities.append( bound+map(operator.sub, Q[1], _V_best[1]))
             return Q
-
-    def Query(self, _V_best, Q, noise):
-
-        bound = [0.0]
-        _d = len(_V_best)
-
-        constr = []
-        rhs = []
-
-        if not noise:
-            if self.Lambda.dot(_V_best) > self.Lambda.dot(Q):
-                new_constraints = bound + map(operator.sub, _V_best, Q)
-                if not self.already_exists(self.Lambda_inequalities, new_constraints):
-                    c = [(j, float(_V_best[j] - Q[j])) for j in range(0, _d)]
-                    constr.append(zip(*c))
-                    rhs.append(0.0)
-                    self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-
-                    self.Lambda_inequalities.append(new_constraints)
-                    print "Contraintes" + str(len(self.Lambda_inequalities))
-                    print >> self.wen,  "Constrainte", self.query_counter_, _V_best - Q, "|> 0"
-                    self.query_counter_ += 1
-                return _V_best
-
-            else:
-                new_constraints = bound + map(operator.sub, Q, _V_best)
-                if not self.already_exists(self.Lambda_inequalities, new_constraints):
-                    c = [(j, float(Q[j] - _V_best[j])) for j in range(0, _d)]
-                    constr.append(zip(*c))
-                    rhs.append(0.0)
-                    self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-
-                    self.Lambda_inequalities.append(new_constraints)
-                    print "Contraintes" + str(len(self.Lambda_inequalities))
-                    print >> self.wen, "Constrainte", self.query_counter_, Q - _V_best, "|> 0"
-                    self.query_counter_ += 1
-                return Q
-        else:
-            noise_vect = self.generate_noise(len(self.Lambda), noise)
-            # Lambda_noisy = noise_vect + self.Lambda
-            V_best_noisy = noise_vect + _V_best
-
-            # if Lambda_noisy.dot(_V_best) > Lambda_noisy.dot(Q):
-            if self.Lambda.dot(V_best_noisy) > self.Lambda.dot(Q):
-                self.Lambda_inequalities.append(bound + map(operator.sub, _V_best, Q))
-                return _V_best
-            else:
-                self.Lambda_inequalities.append(bound + map(operator.sub, Q, _V_best))
-                return Q
-
-                # return None
 
     def get_best_policies(self, _V_best, Q, _noise):
 
@@ -490,29 +485,7 @@ class avi:
 
         return query
 
-    def get_best(self, _V_best, Q, _noise):
-
-        # noinspection PyUnresolvedReferences
-        if (_V_best == Q).all():
-            return Q
-
-        if self.pareto_comparison(_V_best, Q):
-            return _V_best
-
-        if self.pareto_comparison(Q, _V_best):
-            return Q
-
-        if self.cplex_K_dominance_check(Q, _V_best):
-            return Q
-
-        elif self.cplex_K_dominance_check(_V_best, Q):
-            return _V_best
-
-        query = self.Query(_V_best, Q, _noise)
-
-        return query
-
-    # *********************** Algorithms **************************
+    # *********************** comparison part **************************
 
     def value_iteration_with_advantages(self, limit, noise, cluster_threshold, min_change, exact):
         """
@@ -574,64 +547,7 @@ class avi:
         # noinspection PyUnboundLocalVariable
         return currenvalue_d, gather_query, gather_diff
 
-    def value_iteration_weng(self, k, noise, threshold, exact):
-        """
-        this function find the optimal v_bar of dimension d using Interactive value iteration method
-        :param k: max number of iteration
-        :param noise: user noise variance
-        :param threshold: the stopping criteria value
-        :param exact: the (hidden) value used for simulating user preferences. Used here to estimate
-         the distance of the computed value function to the best (?) solution.
-        :return: it lists of d-dimensional vectors after asking any query to the user. the last vector in list is the
-        optimal value solution of algorithm.
-        """
-
-        # wen = open("output_AIweng" + ".txt", "w")
-        gather_query = []
-        gather_diff = []
-        self.query_counter_ = 0
-
-        n, na, d =self.mdp.nstates , self.mdp.nactions, self.mdp.d
-        Uvec_old_nd = np.zeros((n,d), dtype=ftype)
-
-        delta = 0.0
-
-        for t in range(k):
-            print t,
-            if t % 50 == 0:
-                print ""
-            Uvec_nd = np.zeros((n, d), dtype=ftype)
-
-            for s in range(n):
-                _V_best_d = np.zeros(d, dtype=ftype)
-                for a in range(na):
-                    # compute Q function
-                    Q_d = self.mdp.get_vec_Q(s, a, Uvec_old_nd)
-                    _V_best_d = self.get_best(_V_best_d, Q_d, _noise=noise) # may change self.query_counter_
-
-                Uvec_nd[s] = _V_best_d
-
-            Uvec_final_d = self.get_initial_distribution().dot(Uvec_nd)
-            Uvec_old_d = self.get_initial_distribution().dot(Uvec_old_nd)
-            delta = linfDistance([np.array(Uvec_final_d)], [np.array(Uvec_old_d)], 'chebyshev')[0, 0]
-
-            gather_query.append(self.query_counter_)
-            gather_diff.append(abs(np.dot(self.get_Lambda(), Uvec_final_d) - np.dot(self.get_Lambda(), exact)))
-
-            print >> self.wen, "iteration = ", t, "query =", gather_query[-1] , " error= ", gather_diff[-1],\
-                " +" if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "
-
-
-            if delta <threshold:
-                # queries.append(query_count)
-                return(Uvec_final_d, gather_query, gather_diff)
-            else:
-                Uvec_old_nd = Uvec_nd.copy()
-
-        self.prob.write("show-Ldominance.lp")
-
-        return(Uvec_final_d ,gather_query, gather_diff)
-
+# ********************************************
     @staticmethod
     def clean_Points(_points):
         """ returns a copy of _points where all pairs having as value the vector \bar 0 are deleted
@@ -754,5 +670,14 @@ class avi:
 
 
 # ********************************************
+
+def generate_inequalities(_d):
+    inequalities = []
+
+    for x in itertools.combinations(xrange(_d), 1):
+        inequalities.append([0] + [1 if i in x else 0 for i in xrange(_d)])
+        inequalities.append([1] + [-1 if i in x else 0 for i in xrange(_d)])
+
+    return inequalities
 
 

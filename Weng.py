@@ -45,6 +45,7 @@ class weng:
 
         self.prob.set_results_stream(None)
         self.prob.set_log_stream(None)
+        self.prob.set_warning_stream(None)
 
         """add sum(lambda)_i = 1 on problem constraints"""
         c = [[j, 1.0] for j in range(0,_d)]
@@ -57,8 +58,11 @@ class weng:
         L: constraint is lesser than rhs,
         E: constraint is equal than rhs"""
 
-        #self.prob.linear_constraints.add(lin_expr=constr, senses="E" * len(constr), rhs=rhs)
+        self.prob.linear_constraints.add(lin_expr=constr, senses="E" * len(constr), rhs=rhs)
         self.prob.write("show-Ldominance.lp")
+        self.pareto = 0
+        self.kd = 0
+        self.queries = 0
 
     def get_initial_distribution(self):
         return self.mdp.initial_states_distribution()
@@ -90,7 +94,7 @@ class weng:
         result = self.prob.solution.get_objective_value()
         if result < 0.0:
             return False
-        print >> self.wen, _V_best - Q, ">> 0"
+        # print >> self.wen, _V_best - Q, ">> 0"
         return True
 
     def is_already_exist(self, inequality_list, new_constraint):
@@ -101,18 +105,26 @@ class weng:
         :return: True if new added constraint is already exist in list of constraints for Lambda polytope
         """
 
-        print "inequality_list", inequality_list
-        print "new_constraint", new_constraint
+        # print "inequality_list", inequality_list
+
 
         if new_constraint in inequality_list:
             return True
         else:
-            for i in range(2 * self.mdp.d, len(inequality_list)):
-
-                division_list = [np.float32(x / y) for x, y in zip(inequality_list[i], new_constraint)[1:]]
-                if all(x == division_list[0] for x in division_list):
+            # for i in range(2 * self.mdp.d, len(inequality_list)):
+            for i in range(len(inequality_list)):  # the 2 * self.mdp.d spared testing the initial square, which is now in bounds
+                first = True
+                for x, y in zip(inequality_list[i][1:], new_constraint)[1:]:
+                    if x == 0 and y == 0:
+                        continue
+                    if first:
+                        u, v = x , y
+                        first = False
+                    elif (u * y != x * v):
+                        break
+                else :
                     return True
-
+        print "new_constraint", new_constraint
         return False
 
     @staticmethod
@@ -141,7 +153,8 @@ class weng:
                     self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
 
                     self.Lambda_inequalities.append(new_constraints)
-
+                    print >> self.wen,  "Constrainte", self.query_counter_, _V_best - Q, "|> 0"
+                    self.query_counter_ += 1
                 return _V_best
 
             else:
@@ -153,7 +166,8 @@ class weng:
                     self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
 
                     self.Lambda_inequalities.append(new_constraints)
-
+                    print >> self.wen, "Constrainte", self.query_counter_, Q - _V_best, "|> 0"
+                    self.query_counter_ += 1
                 return Q
         else:
 
@@ -189,19 +203,24 @@ class weng:
              return Q
 
         if self.pareto_comparison(_V_best, Q):
+            self.pareto += 1
             return _V_best
 
         if self.pareto_comparison(Q, _V_best):
+            self.pareto += 1
             return Q
 
         if self.cplex_K_dominance_check(Q, _V_best):
+            self.kd += 1
             return Q
 
-        elif self.cplex_K_dominance_check(_V_best, Q):
+        if self.cplex_K_dominance_check(_V_best, Q):
+            self.kd += 1
             return _V_best
 
         query = self.Query(_V_best, Q, _noise)
-        self.query_counter_ += 1
+        self.queries += 1
+        # self.query_counter_ += 1 ## seulement si existe --> dans Query
 
         return query
 
@@ -226,6 +245,7 @@ class weng:
 
         n, na, d = self.mdp.nstates, self.mdp.nactions, self.mdp.d
         Uvec_old_nd = np.zeros((n, d), dtype=ftype)
+        Uvec_nd = np.zeros((n, d), dtype=ftype)
 
         delta = 0.0  # seems useless and harmless
 
@@ -233,13 +253,14 @@ class weng:
             print t,
             if t % 50 == 0:
                 print ""
-            Uvec_nd = np.zeros((n, d), dtype=ftype)
+            #Uvec_nd = np.zeros((n, d), dtype=ftype)
 
             for s in range(n):
                 _V_best_d = np.zeros(d, dtype=ftype)
                 for a in range(na):
                     # compute Q function
-                    Q_d = self.mdp.get_vec_Q(s, a, Uvec_old_nd)
+                    # Q_d = self.mdp.get_vec_Q(s, a, Uvec_old_nd)
+                    Q_d = self.mdp.get_vec_Q(s, a, Uvec_nd)
                     _V_best_d = self.get_best(_V_best_d, Q_d, _noise=noise)
 
                 Uvec_nd[s] = _V_best_d
@@ -258,14 +279,14 @@ class weng:
                 " +" if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "
 
             if delta < threshold:
-                return Uvec_final_d, gather_query, gather_diff
+                return Uvec_final_d, gather_query, gather_diff, t
             else:
                 Uvec_old_nd = Uvec_nd.copy()
 
         print >> self. wen,  "iteration = ", t, "query =", gather_query[-1] , " error= ", gather_diff[-1],\
         "+ " if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "
 
-        return(Uvec_final_d, gather_query, gather_diff)
+        return(Uvec_final_d, gather_query, gather_diff), t
 
 # ********************************************
 def generate_inequalities(_d):

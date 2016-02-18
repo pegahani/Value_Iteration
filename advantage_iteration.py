@@ -13,7 +13,7 @@ from scipy.spatial import ConvexHull
 try:
     from scipy.sparse import csr_matrix, dok_matrix
     from scipy.spatial.distance import cityblock as l1distance
-    # noinspection PyPep8Naming
+    # noinspection PyPep_Naming
     from scipy.spatial.distance import cdist as linfDistance
 except:
     from sparse_mat import dok_matrix, csr_matrix, l1distance

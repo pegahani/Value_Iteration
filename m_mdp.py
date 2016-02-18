@@ -196,6 +196,13 @@ class VVMdp:
         # Lambda has to be defined
         return np.argmax( [self.expected_dot_utility(s,a,U) for a in range(self.nactions)] )
 
+    def best_policy(self, U):
+        """Given an MDP and a (nxd) utility function U, determine the best policy,
+        as a mapping from state to action. (Equation 17.4)"""
+        pi = np.zeros((self.nstates),np.int)
+        for s in range(self.nstates):
+            pi[s] = self.best_action(s,U)
+        return pi
 
     def policy_iteration(self,_Uvec=None):
 

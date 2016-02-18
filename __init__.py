@@ -8,7 +8,7 @@ import time
 if __name__ == '__main__':
     start = time.time()
     starts = time.clock()
-    _d = 4
+    _d = 3
 
     # _lambda_rand = avi.interior_easy_points(_d)
     # pickle.dump(_lambda_rand,open("lambda.dmp", 'w'))
@@ -18,7 +18,7 @@ if __name__ == '__main__':
     # m = m_mdp.make_grid_VVMDP(_lambda_rand, n=3)
 
 
-    _state, _action = 80, 5
+    # _state, _action = 8, 5
     # m = m_mdp.make_simulate_mdp_Yann(_state, _action, _lambda_rand, None)
     # m.save('mdp.dmp')
     m = m_mdp.reload('mdp.dmp')
@@ -36,27 +36,31 @@ if __name__ == '__main__':
     # print Uvec - Uvec1
 
     exact = m.initial_states_distribution().dot(Uvec)  # expected vectorial value for this best policy
-    #
+
     #w = avi(m, _lambda_rand, _Lambda_inequalities)
+
     w = avi(m, _lambda_rand, [])
     sol_avi = w.value_iteration_with_advantages(limit=100000, noise=None,
                                             cluster_threshold=0.01, min_change=0.000001, exact=exact)
     print 'avi error', sol_avi[2][-1]
     print "Iterations", sol_avi[5],
-    print "Queries", sol_avi[1][-1]
+    print "Queries", sum(sol_avi[1])
+
     # sol_AIweng = w.value_iteration_weng(k=100000, noise= None, threshold=0.001, exact = exact)
     # print 'AIweng error', sol_AIweng[2][len(sol_AIweng[2])-1]
     # print "Queries", sol_AIweng[1]
 
     # w = weng(m, _lambda_rand, _Lambda_inequalities)
+
     # w = weng(m, _lambda_rand, [])
     # sol_weng = w.value_iteration_weng(k=100000, noise= None, threshold=0.001, exact = exact)
     #
     # print 'weng error', sol_weng[2][-1]
     # print "Iterations", sol_weng[3],
     # print "Queries", sol_weng[1][-1]
+
     print "Pareto finds", w.pareto, "kDominance finds", w.kd, "queries performed", w.queries
-    print "generated clusters", w.nbclusters,
+    print "lastly generated clusters", w.nbclusters,
     print "hull used", sol_avi[3], "hull skipped", sol_avi[4]
     stop = time.time()
     stops = time.clock()

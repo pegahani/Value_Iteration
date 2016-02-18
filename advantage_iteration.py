@@ -521,7 +521,7 @@ class avi:
             delta = linfDistance([np.array(currenvalue_d)], [np.array(previousvalue_d)], 'chebyshev')[0, 0]
 
             gather_query.append(self.query_counter_)
-            gather_diff.append(abs(self.Lambda.dot(currenvalue_d) - self.Lambda.dot(exact)))
+            gather_diff.append(self.Lambda.dot(exact) - self.Lambda.dot(currenvalue_d))
 
             print >> self.wen,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , \
                 "clusters =", self.nbclusters, "error= ", gather_diff[len(gather_diff)-1], \

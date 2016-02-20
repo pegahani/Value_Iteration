@@ -8,31 +8,31 @@ import time
 if __name__ == '__main__':
     start = time.time()
     starts = time.clock()
-    _d = 3
+    _d = 2
 
-    # pp = pickle.Pickler(open("param80-1.dmp", 'w'))
-    pup = pickle.Unpickler(open("param80-1.dmp", 'r'))
-    # _lambda_rand = avi.interior_easy_points(_d)
-    # pp.dump(_lambda_rand)
-    _lambda_rand = pup.load()
+    # pp = pickle.Pickler(open("param8-2.dmp", 'w'))
+    # pup = pickle.Unpickler(open("param80-1.dmp", 'r'))
+    _lambda_rand = avi.interior_easy_points(_d)
+    # # pp.dump(_lambda_rand)
+    # _lambda_rand = pup.load()
     # print _lambda_rand
 
-    # m = m_mdp.make_grid_VVMDP(_lambda_rand, n=3)
+    m = m_mdp.make_grid_VVMDP(_lambda_rand, n=2)
 
 
-    # _state, _action = 80, 5
+    _state, _action = 4, 5
     # pp.dump((_state,_action))
-    state, action = pup.load()
+    # state, action = pup.load()
     # m = m_mdp.make_simulate_mdp_Yann(_state, _action, _lambda_rand, None)
     # pp.dump(m)
-    m = pup.load()
+    # m = pup.load()
 
     # m.save('mdp.dmp')
     # m = m_mdp.reload('mdp.dmp')
 
-    # Uvec = m.value_iteration(epsilon=0.00001)
+    Uvec = m.value_iteration(epsilon=0.00001)
     # pp.dump(Uvec)
-    Uvec = pup.load()
+    # Uvec = pup.load()
     print Uvec
     # Uvec = m.policy_iteration()  # returns the matrix of vectorial values of the best policy reached, starting from
     # # values all equal to 0 and iterating until actions dont change any more

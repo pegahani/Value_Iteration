@@ -226,7 +226,7 @@ class VVMdp:
             if unchanged:
                 return U
 
-    def calculate_advantages_labels(self, _matrix_nd, _IsInitialDistribution, policy):
+    def calculate_advantages_labels(self, _matrix_nd, _IsInitialDistribution):
         """
         This function get a matrix and finds all |S|x|A| advantages.  It is unused in the class (17/1/2016)
         :param _matrix_nd: a matrix of dimension nxd which is required to calculate advantages (the actual vectorial utility function)

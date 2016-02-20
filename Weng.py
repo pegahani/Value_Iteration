@@ -54,9 +54,9 @@ class weng:
         there are three options for sense:
         G: constraint is greater than rhs,
         L: constraint is lesser than rhs,
-        E: constraint is equal than rhs"""
+        E: constraint is equal to rhs"""
 
-        #self.prob.linear_constraints.add(lin_expr=constr, senses="E" * len(constr), rhs=rhs)
+        self.prob.linear_constraints.add(lin_expr=constr, senses="E" * len(constr), rhs=rhs)
         self.prob.write("show-Ldominance.lp")
 
     def get_initial_distribution(self):
@@ -98,9 +98,6 @@ class weng:
         :param new_constraint: new added constraint to list of inequalities of dimension d+1
         :return: True if new added constraint is already exist in list of constraints for Lambda polytope
         """
-
-        print "inequality_list", inequality_list
-        print "new_constraint", new_constraint
 
         if new_constraint in inequality_list:
                 return True
@@ -216,8 +213,6 @@ class weng:
         optimal value solution of algorithm.
         """
 
-        wen = open("output_weng" + ".txt", "w")
-
         gather_query = []
         gather_diff = []
 
@@ -245,19 +240,10 @@ class weng:
             gather_query.append(self.query_counter_)
             gather_diff.append(abs( np.dot(self.get_Lambda(),Uvec_final_d) - np.dot(self.get_Lambda(), exact)))
 
-            #gather_diff.append(linfDistance( [np.array(Uvec_final_d)] , [np.array(exact)], 'chebyshev')[0,0])
-            #gather_diff.append(delta) # problem de side effect
-
-            print >> wen, "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1],\
-                " +" if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
-
             if delta <threshold:
                 return(Uvec_final_d, gather_query, gather_diff)
             else:
                 Uvec_old_nd = Uvec_nd
-
-        print >> wen,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , " error= ", gather_diff[len(gather_diff)-1],\
-        "+ " if (len(gather_diff) > 2 and gather_diff[len(gather_diff)-2] < gather_diff[len(gather_diff)-1]) else " "
 
         return(Uvec_final_d, gather_query, gather_diff)
 
@@ -272,7 +258,6 @@ def generate_inequalities(_d):
     return inequalities
 
 def interior_easy_points(dim):
-    #dim = len(self.points[0])
     l = []
     for i in range(dim):
         l.append(random.uniform(0.0, 1.0))

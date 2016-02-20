@@ -263,13 +263,12 @@ class VVMdp:
                 print ""
                 return U
 
-    def calculate_advantages_labels(self, _matrix_nd, _IsInitialDistribution):
+    def calculate_advantages_dic(self, _matrix_nd, _IsInitialDistribution):
         """
         This function get a matrix and finds all |S|x|A| advantages.  It is unused in the class, but used by avi
         :param _matrix_nd: a matrix of dimension nxd which is required to calculate advantages (the current vectorial
             utility function)
         :param _IsInitialDistribution: if initial distribution should be considered in advantage calculation or not
-        :param policy: unused
         :return: an advantages dictionary, i.e. a dictionary of all advantages for our MDP. keys are pairs and
         values are advantages vectors for instance: for state s and action a and d= 3 we have: (s,a): [0.1,0.2,0.4]
         """

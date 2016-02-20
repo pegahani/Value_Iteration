@@ -122,8 +122,8 @@ class VVMdp:
         _tr = self.transitions[state, action]
         return izip(_tr.indices, _tr.data)
 
-    # def set_Lambda(self,l):
-    #     self.Lambda = np.array(l, dtype=ftype)
+    def set_Lambda(self,l):
+        self.Lambda = np.array(l, dtype=ftype)
 
     def get_lambda(self):
         return self.Lambda

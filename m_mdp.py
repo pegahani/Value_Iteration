@@ -224,14 +224,24 @@ class VVMdp:
         # Lambda has to be defined
         return np.argmax([self.expected_dot_utility(s, a, U) for a in range(self.nactions)])
 
+    def best_policy(self, U):
+        """Given an MDP and a (nxd) utility function U, determine the best policy,
+        as a mapping from state to action. (Equation 17.4)"""
+        pi = np.zeros((self.nstates),np.int)
+        for s in range(self.nstates):
+            pi[s] = self.best_action(s,U)
+        return pi
+
     def policy_iteration(self, _Uvec=None, _k = 20, _pi=None):
+
         """Solve an MDP by policy iteration [Fig. 17.7]. Tries 20 value iterations, then chooses the new best
         actions according to new vectorial values. Test if the policiy has changed and stops if not.
         :rtype: the vectorial value of the fix-point policy
         :param _Uvec is the set of initial vectorial values of states
         """
-        if _Uvec is None:
-            U = np.zeros((self.nstates, self.d), dtype=ftype)
+
+        if _Uvec == None:
+            U = np.zeros( (self.nstates,self.d) , dtype=ftype)
         else:
             U = _Uvec
 
@@ -253,13 +263,12 @@ class VVMdp:
                 print ""
                 return U
 
-    def calculate_advantages_dic(self, _matrix_nd, _IsInitialDistribution, policy):
+    def calculate_advantages_dic(self, _matrix_nd, _IsInitialDistribution):
         """
         This function get a matrix and finds all |S|x|A| advantages.  It is unused in the class, but used by avi
         :param _matrix_nd: a matrix of dimension nxd which is required to calculate advantages (the current vectorial
             utility function)
         :param _IsInitialDistribution: if initial distribution should be considered in advantage calculation or not
-        :param policy: unused
         :return: an advantages dictionary, i.e. a dictionary of all advantages for our MDP. keys are pairs and
         values are advantages vectors for instance: for state s and action a and d= 3 we have: (s,a): [0.1,0.2,0.4]
         """

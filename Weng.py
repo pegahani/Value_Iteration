@@ -56,7 +56,7 @@ class weng:
         there are three options for sense:
         G: constraint is greater than rhs,
         L: constraint is lesser than rhs,
-        E: constraint is equal than rhs"""
+        E: constraint is equal to rhs"""
 
         self.prob.linear_constraints.add(lin_expr=constr, senses="E" * len(constr), rhs=rhs)
         # self.prob.write("show-Ldominance.lp")
@@ -104,9 +104,6 @@ class weng:
         :param new_constraint: new added constraint to list of inequalities of dimension d+1
         :return: True if new added constraint is already exist in list of constraints for Lambda polytope
         """
-
-        # print "inequality_list", inequality_list
-
 
         if new_constraint in inequality_list:
             return True
@@ -237,8 +234,6 @@ class weng:
         optimal value solution of algorithm.
         """
 
-
-
         gather_query = []
         gather_diff = []
         self.query_counter_ = 0
@@ -299,7 +294,6 @@ def generate_inequalities(_d):
     return inequalities
 
 def interior_easy_points(dim):
-    # dim = len(self.points[0])
     l = []
     for i in range(dim):
         l.append(random.uniform(0.0, 1.0))

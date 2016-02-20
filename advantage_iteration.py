@@ -28,6 +28,34 @@ class avi:
     """ A class for the advantage based value iteration algorithm.
         Embeds a VVMDP. Instance variables:
         mdp, Lambda, Lambda_generate_inequalities, query_counter_, query_counter_with_advantages"""
+    class AdvantagesDict:
+        """
+        avantages dictionary: keys are pairs (state,action), their value is an avantage vector
+        """
+        def __init__(self, dico = None):
+            if dico:
+                self.elems = dico
+            else:
+                self.elems = {}
+        def set(self, s_a_pair, v):
+            self.elems[s_a_pair] = v
+        def get(self, s_a_pair):
+            return self.elems[s_a_pair]
+        def getdefault(self, s_a_pair,v=None):
+            return self.elems.get(s_a_pair,v) # v by default
+        def size(self):
+            return len(self.elems)
+        def __iter__(self):
+            return self.elems.__iter__()
+        def iteritems(self):
+            for i in self.elems.iteritems():
+                yield i
+        def itervalues(self):
+            for i in self.elems.itervalues():
+                yield i
+        def iterkeys(self):
+            for i in self.elems.iterkeys():
+                yield i
 
     def __init__(self, _mdp, _lambda, _lambda_inequalities):
 
@@ -65,7 +93,7 @@ class avi:
         E: constraint is equal than rhs"""
 
         self.prob.linear_constraints.add(lin_expr=constr, senses="E" * len(constr), rhs=rhs)
-        self.prob.write("show-CPconfig.lp")
+        # self.prob.write("show-CPconfig.lp")
         self.wen = open("output_avi" + ".txt", "w")
         self.pareto = 0
         self.kd = 0
@@ -99,31 +127,28 @@ class avi:
 
         """
         this function receives advantages and clusters them using a threshold inside each cluster
-        :param _advantages_dict: dictionary of pairs (s,a):advantage vector of dimension d
+        :param _advantages_dict: object of class avi.avantages_dict, with all the advantages to cluster
         :param _cluster_threshold: max distance between two point in any cluster(cosine similarity distance)
-        :return: dictionary o clusters such as {1: {(2, 0): [ 0.18869102,  0.], (2, 1):[ 0.18869102,  0.]},
-                                                2: {(0, 1):[ 0.,  0.19183344], (1, 0): array([ 0.,  0.06188244]}
-            i.e. {cluster_id:advantage_dict}
+        :return: dictionary of advantages_dict: the key is the cluster id, and the value is an advantages_dict with
+        all the advantages of this cluster
         """
 
         d = self.mdp.d
         cluster_advantages_dic = {}
 
-        # checked outside cluster_cosine to cope with the empty result
-        #  Points_dic = avi.clean_Points(_advantages_dict)
-        points_array = np.zeros((len(_advantages_dict), d),
+        advantages_array = np.zeros((_advantages_dict.size(), d),
                                 dtype=ftype)  # array of vectors of size d (the advantages to cluster)
-        dic_labels = {}  # array of (s,a) pairs. The index in points_array is also the index of the (s,a) pair
+        sa_pairs_array = []  # array of (s,a) pairs. The index in points_array is also the index of the (s,a) pair
                         # providing this advantage.
 
         counter = 0
-        for key, val in _advantages_dict.iteritems():
-            points_array[counter] = val
-            dic_labels[counter] = key
+        for state_act, advantage in _advantages_dict.iteritems():
+            advantages_array[counter] = advantage
+            sa_pairs_array.append(state_act)
             counter += 1
 
         # calls scipy.cluster.hierarchy
-        z = hac.linkage(points_array, method='complete', metric='cosine')
+        z = hac.linkage(advantages_array, method='complete', metric='cosine')
         tol = -1e-16
         z.real[z.real < tol] = 0.0
         labels = hac.fcluster(z, _cluster_threshold, criterion='distance')
@@ -133,54 +158,55 @@ class avi:
 
         # rewrites the result of scipy.cluster.hierarchy in proper format: a dictionary of dictionaries
         for la in range(1, max(labels) + 1):
-            cluster_advantages_dic.setdefault(la, {})
+            cluster_advantages_dic.setdefault(la, avi.AdvantagesDict())
 
         for index, label in enumerate(labels):
-            avi.update(cluster_advantages_dic, {label: {dic_labels[index]: points_array[index, :]}})
+            cluster_advantages_dic[label].set(sa_pairs_array[index], advantages_array[index, :])
         self.nbclusters = len(cluster_advantages_dic)
-
+        # maxlen = max([d.size() for d in cluster_advantages_dic.itervalues()])
+        # print self.nbclusters, maxlen
         return cluster_advantages_dic
 
 
-    def justify_cluster(self, _vectors_list_dict, _clustered_pairs_vectors):
-        """
-
-        this function get list of vectors of d dimension and a dictionary of pairs and vectors.
-        it reassigns pairs to vectors.
-
-        :param _vectors_list_dict: dictionary of cluster_id, list of vectors (the convex hull)
-        :param _clustered_pairs_vectors: dictionary of (index, (pairs lists,vectors lists))
-        :return: find related pair from _clustered_pairs_vectors to any vector from _convex_hull_vectors_list
-
-        example:
-           _clustered_pairs_vectors = {1:[[ 0.        ,  0.10899174],
-           [ 0.        ,  0.10899174],
-           [ 0.        ,  0.32242826]]}
-
-           _convex_hull_vectors_list =  {1: {(0, 1): array([ 0.        ,  0.10899174], dtype=float32),
-             (0, 0): array([ 0.        ,  0.10899174], dtype=float32), (2, 1): array([ 0.        ,  0.32242826], dtype=float32),
-             (2, 0): array([ 0.        ,  0.32242826], dtype=float32), (1, 0): array([ 0.        ,  0.01936237], dtype=float32),
-             (1, 1): array([ 0.        ,  0.01936237], dtype=float32)}}
-
-            it returns: {1: ([(0, 1), (0, 0), (2, 1)], array([[ 0.        ,  0.10899174],
-                       [ 0.        ,  0.10899174],
-                       [ 0.        ,  0.32242826]], dtype=float32))}
-        """
-        # TODO Note fl: the reassignment is not deterministic: in the example, the answer could also be (0,1)(0,0)(2,0) ??
-
-        _dic_pairs_vectors = {}
-
-        for key in _vectors_list_dict.iterkeys():
-            if len(_vectors_list_dict[key]) == 0:
-                _dic_pairs_vectors[key] = ([k for k in _clustered_pairs_vectors[key].iterkeys()],
-                                           self.get_advantages(_clustered_pairs_vectors[key]))
-            else:
-                policy = []
-                for i in _vectors_list_dict[key]:
-                    policy.append(self.keys_of_value(_clustered_pairs_vectors[key], i))
-                _dic_pairs_vectors[key] = (policy, _vectors_list_dict[key])
-
-        return _dic_pairs_vectors
+    # def justify_cluster(self, _vectors_list_dict, _clustered_pairs_vectors):
+    #     # TODO now unused
+    #     """
+    #     this function get list of vectors of d dimension and a dictionary of pairs and vectors.
+    #     it reassigns pairs to vectors.
+    #
+    #     :param _vectors_list_dict: dictionary of cluster_id, list of vectors (the convex hull)
+    #     :param _clustered_pairs_vectors: dictionary of (index, (pairs lists,vectors lists))
+    #     :return: find related pair from _clustered_pairs_vectors to any vector from _convex_hull_vectors_list
+    #
+    #     example:
+    #        _clustered_pairs_vectors = {1:[[ 0.        ,  0.10899174],
+    #        [ 0.        ,  0.10899174],
+    #        [ 0.        ,  0.32242826]]}
+    #
+    #        _convex_hull_vectors_list =  {1: {(0, 1): array([ 0.        ,  0.10899174], dtype=float32),
+    #          (0, 0): array([ 0.        ,  0.10899174], dtype=float32), (2, 1): array([ 0.        ,  0.32242826], dtype=float32),
+    #          (2, 0): array([ 0.        ,  0.32242826], dtype=float32), (1, 0): array([ 0.        ,  0.01936237], dtype=float32),
+    #          (1, 1): array([ 0.        ,  0.01936237], dtype=float32)}}
+    #
+    #         it returns: {1: ([(0, 1), (0, 0), (2, 1)], array([[ 0.        ,  0.10899174],
+    #                    [ 0.        ,  0.10899174],
+    #                    [ 0.        ,  0.32242826]], dtype=float32))}
+    #     """
+    #     # TODO Note fl: the reassignment is not deterministic: in the example, the answer could also be (0,1)(0,0)(2,0) ??
+    #
+    #     _dic_pairs_vectors = {}
+    #
+    #     for key in _vectors_list_dict.iterkeys():
+    #         if len(_vectors_list_dict[key]) == 0:
+    #             _dic_pairs_vectors[key] = ([k for k in _clustered_pairs_vectors[key].iterkeys()],
+    #                                        self.get_advantages(_clustered_pairs_vectors[key]))
+    #         else:
+    #             policy = []
+    #             for i in _vectors_list_dict[key]:
+    #                 policy.append(self.keys_of_value(_clustered_pairs_vectors[key], i))
+    #             _dic_pairs_vectors[key] = (policy, _vectors_list_dict[key])
+    #
+    #     return _dic_pairs_vectors
 
     def make_clusters_pv_dict(self, _clusters_dict):
         """
@@ -190,25 +216,25 @@ class avi:
         """
         pv_dict = {}
         for key in _clusters_dict.iterkeys():
-            policy = []
-            values = []
-            for k, v in _clusters_dict[key].iteritems():
-                policy.append(k)
-                values.append(v)
+            policy = [k for k in _clusters_dict[key].iterkeys()]
+            values = [v for v in _clusters_dict[key].itervalues()]
+            # for k, v in _clusters_dict[key].iteritems():
+            #     policy.append(k)
+            #     values.append(v)
             pv_dict[key] = (policy, values)
 
         return pv_dict
 
 
-    def sum_cluster_and_matrix(self, pair_vector_cluster, _matrix_nd):
+    def sum_cluster_and_matrix(self, policy_values_clusters, _matrix_nd):
         """
-        this function receives dictionary of clusters including assigned pairs and advantages (first argument)
-        and nxd matrix (2nd arg)
-        :param pair_vector_cluster:  clusters dictionary (dictionary of clusters including assigned pairs and advantages
-        in which advantages are vectors of dimension d
+        this function receives a clusters policy-values dictionary and a nxd matrix (2nd arg). For each cluster if the policy
+        has two actions in the same state, chooses one of them randomly.  Then sums all advantages in the same cluster,
+        and adds the expected vectorial value of matrix_nd (the previous vectorial value per state)
+        :param policy_values_clusters: a clusters-policy-values dictionary (dictionary of clusters as pairs (policy, value)
         :param _matrix_nd: a related matrix of dimension nxd
-        :return: clusters-value dictionary, i.e. for each cluster if there is (s,a-i) and (s,a_j) choose one of them
-        randomly and make sum on all related vectors in the same cluster, then add beta.matrix_nd
+        :return: clusters-value dictionary, i.e. a dictionary with keys = ids of clusters, and values = pairs (l,v)
+        where l is the pruned list of (state, action) and v is (old expected value + sum of advantages)
         """
 
         n = self.nstates
@@ -217,15 +243,20 @@ class avi:
         final_dic = {}
         dic_clusters_sum_v_old = {}
 
-        for key, val in pair_vector_cluster.iteritems():
+        for key, val in policy_values_clusters.iteritems():
             sum_d = np.zeros(d, dtype=ftype)
             pairs_list = []
+            selected_pairs_dic = {}
 
-            for i in range(n):
-                selected_pairs = [val[0].index(pair) for pair in val[0] if pair[0] == i]
+            # builds a dictionary of list of indexes per state in the policy
+            for ind, pair in enumerate(val[0]): # pair[0] is the state
+                selected_pairs_dic.setdefault(pair[0],[]).append(ind)
 
-                if selected_pairs:
-                    pair_index = random.choice(selected_pairs)
+            # rebuild a policy where double states are pruned and advantages are summed.
+            for s in range(n):
+                # selected_pairs = [val[0].index(pair) for pair in val[0] if pair[0] == i]
+                if s in selected_pairs_dic:
+                    pair_index = random.choice(selected_pairs_dic[s])
                     # pair_index = min(selected_pairs)
                     sum_d = map(add, sum_d, val[1][pair_index])
                     pairs_list.append(val[0][pair_index])
@@ -233,8 +264,9 @@ class avi:
             final_dic[key] = (pairs_list, sum_d)
 
         # adds the expected vectorial value of _matrix_nd to the advantage of the cluster
+        e_val = self.get_initial_distribution().dot(_matrix_nd)
         for k, v in final_dic.iteritems():
-            dic_clusters_sum_v_old[k] = (v[0], map(add, self.get_initial_distribution().dot(_matrix_nd), v[1]))
+            dic_clusters_sum_v_old[k] = (v[0], map(add, e_val, v[1]))
 
         return dic_clusters_sum_v_old
 
@@ -242,38 +274,30 @@ class avi:
 
         """
 
-        this function cluster advantages, make a convex hull on each cluster and returns back a dictionary
-        of sum of vectors in each cluster and related pair of (state, action) in the same cluster
+        this function cluster advantages, make a convex hull on each cluster, selects at most one action per state
+         (randomly) and returns back a dictionary
+        of (poliey, value) of each cluster
 
         :param _old_value_vector: a matrix of dimension nxd that will be added to improvements concluded from advantages
-        :param _advantages: set of all generated advantages, each advantage is a vector of dimension d
+        :param _advantages: AdvantagesDict (all possible advantages)
         :param _cluster_threshold: max possible distance(cosine similarity distance) between two points in each cluster
-        :return: returns back a dictionary of clusters including: key : value. Key is a counter of dictionary
-                value is a pair like: ([(0, 1), (2, 0), (0, 0), (2, 1)], [0.0, 0.73071181774139404]) which first element
-                are pairs and second element is sum on all related vectors + beta._matrix_nd
+        :return: returns back a dictionary of clusters including: key : value. Key is a numerical cluster id,
+                value is a pair (policy,VV) where policy is a list of (state, action) pairs and VV is the sum on all
+                related vectors + beta._matrix_nd
         """
 
-        # _advantages = {(0, 1): np.array([ 0.,  0.], dtype=np.float32), (1, 2): np.array([ 1.,  2.], dtype=np.float32),
-        #                (3, 2): np.array([ 0.,  0.], dtype=np.float32), (0, 0): np.array([ 0.,  0.], dtype=np.float32),
-        #                (3, 1): np.array([ 0.,  0.], dtype=np.float32), (3, 3): np.array([ 0.,  0.], dtype=np.float32),
-        #                (3, 0): np.array([ 0.,  0.], dtype=np.float32), (2, 2): np.array([ 2.,  2.], dtype=np.float32),
-        #                (1, 1): np.array([ 1.,  1.], dtype=np.float32), (1, 4): np.array([ 1.,  4.], dtype=np.float32),
-        #                (0, 2): np.array([ 0.,  0.], dtype=np.float32), (2, 0): np.array([ 2.,  0.], dtype=np.float32),
-        #                (1, 3): np.array([ 1.,  3.], dtype=np.float32), (2, 3): np.array([ 2.,  3.], dtype=np.float32),
-        #                (2, 1): np.array([ 2.,  1.], dtype=np.float32), (0, 4): np.array([ 0.,  0.], dtype=np.float32),
-        #                (2, 4): np.array([ 0.,  0.], dtype=np.float32), (0, 3): np.array([ 0.,  0.], dtype=np.float32),
-        #                (3, 4): np.array([ 0.,  0.], dtype=np.float32), (1, 0): np.array([ 1.,  0.], dtype=np.float32)}
-
         clustered_advantages = self.cluster_cosine_similarity(_advantages, _cluster_threshold)
-        # clustered_advantages now contains a clusters dictionary where advantages can be redundant
-        convex_hull_clusters = {}
-
-        for key, val in clustered_advantages.iteritems():
-            tempo = self.make_convex_hull(val, key) # now tempo is also an advantages dictionary
-            convex_hull_clusters[key] = tempo
+        # clustered_advantages now contains a dictionary where keys are cluster ids and vals are AdvantagesDict
+        # convex_hull_clusters = {}
+        #
+        # for key, val in clustered_advantages.iteritems():
+        #     tempo = self.make_convex_hull(val, key) #  tempo is also an AdvantagesDic
+        #     convex_hull_clusters[key] = tempo
+        convex_hull_clusters = clustered_advantages
 
         if bool(clustered_advantages):
             # cluster_pairs_vectors = self.justify_cluster(convex_hull_clusters, clustered_advantages)
+            # cluster_pairs_vectors is a dictionary with values = pairs (list, list)
             cluster_pairs_vectors = self.make_clusters_pv_dict(convex_hull_clusters)
             sum_on_convex_hull_temp = self.sum_cluster_and_matrix(cluster_pairs_vectors, _old_value_vector)
             sum_on_convex_hull = {key: val for key, val in sum_on_convex_hull_temp.iteritems() if val[1]}
@@ -286,8 +310,8 @@ class avi:
         """
         this function receives dictionary of state action pairs an related vector value improvements
         and returns back dictionary of policies related to given pairs and the same vector value improvement
-        :param _policies: dictionary of this form : {0: ((1, 0), (0, 1)), [ 1.20030463,  0.        ])
-        :param pi_p: the given policy without counting improvement in accounts
+        :param _policies: dictionary with key = cluster id, value = (policy list, vectorial value)
+        :param pi_p: a policy dict {state:action, ...}
         :return: dictionary of new policies and related improved vector values
         """
 
@@ -297,9 +321,9 @@ class avi:
         new_policies = {}
         _pi_old = copy.deepcopy(_pi_p)
 
-        for k, policy in _policies.iteritems():
+        for k, pv_pair in _policies.iteritems():
             for key, val in _pi_p.iteritems():
-                tempo = [item[1] for item in policy[0] if item[0] == key]
+                tempo = [item[1] for item in pv_pair[0] if item[0] == key]
                 if tempo:
                     _pi_p[key] = tempo
                     # else:
@@ -309,9 +333,9 @@ class avi:
 
             # V_append_d = np.zeros(self.mdp.d, dtype=ftype)
 
-            #TODO check it again
+            #TODO V_append_d is alvais 0
 
-            new_policies[k] = (_pi_p,np.float32(operator.add(policy[1], V_append_d)) ) #np.float32(policy[1]))
+            new_policies[k] = (_pi_p,np.float32(operator.add(pv_pair[1], V_append_d)) ) #np.float32(policy[1]))
 
             #global log
             #print >> log, 'added vector ', policy[1], ' added advantage', np.dot(self.get_Lambda(), policy[1])
@@ -338,7 +362,7 @@ class avi:
 
         ob = [(j, float(_V_best[j] - Q[j])) for j in range(0, _d)]
         self.prob.objective.set_linear(ob)
-        self.prob.write("show-Ldominance.lp")
+        # self.prob.write("show-Ldominance.lp")
         self.prob.solve()
 
         result = self.prob.solution.get_objective_value()
@@ -489,6 +513,7 @@ class avi:
 
         gather_query = []
         gather_diff = []
+        gather_clusters = []
 
         d = self.mdp.d
         currentUvecs_nd = np.zeros((self.nstates, d), dtype=ftype) # initial value vector per state
@@ -501,20 +526,31 @@ class avi:
 
         # limit = 1
         for t in range(limit):
-
-            advantages_dic = self.mdp.calculate_advantages_dic(currentUvecs_nd, False, best_policyvaluepair[0])
+            # computes all the advantages in a dictionary {(state, action):vector ...}
+            advantages_dic = self.mdp.calculate_advantages_dic(currentUvecs_nd, True, best_policyvaluepair[0])
+            # removes advantages equal to vector 0
             advantages_dic = avi.clean_Points(advantages_dic)
             if advantages_dic == {}:
                 print "dictionaire vide"
                 return currenvalue_d, gather_query, gather_diff
+            # feeds into internal class format
+            advantages_dic = avi.AdvantagesDict(advantages_dic)
+            # computes a dictionary of clusters, where each cluster is a pair ([(s,a)...], V) (the list of (s,a) in the
+            # cluster, and the sum of the (vectorial) advantages and the previous \beta(s) \dot \bar V(s)
             clusters_dic = self.accumulate_advantage_clusters(currentUvecs_nd, advantages_dic, cluster_threshold)
             # policies = self.declare_policies(clusters_dic, best_policyvaluepair[0], currentUvecs_nd)
+            # only replaces actions in the best policy by actions in the cluster when their state is the same
             policies = self.declare_policies(clusters_dic, best_policyvaluepair[0])
 
-            best_policyvaluepair = [best_policyvaluepair[0], np.zeros(d, dtype=ftype)] # protects again keeping the value from previous iteration
+            # Updates the best (policy, value) pair. The value inherited from the previous iteration is fist cleaned
+            # to protects against keeping the (policy, value) pair from previous iteration
+            best_policyvaluepair = [best_policyvaluepair[0], np.zeros(d, dtype=ftype)]
             for val in policies.itervalues():
                 best_policyvaluepair = self.get_best_policies(best_policyvaluepair, val, noise)
 
+            print t, ":", len(best_policyvaluepair[0]),
+            if t%25 == 0:
+                print
             currentUvecs_nd = self.mdp.update_matrix(policy_p=best_policyvaluepair[0], _Uvec_nd=currentUvecs_nd)
             currenvalue_d = best_policyvaluepair[1]
 
@@ -522,12 +558,16 @@ class avi:
 
             gather_query.append(self.query_counter_)
             gather_diff.append(self.Lambda.dot(exact) - self.Lambda.dot(currenvalue_d))
+            gather_clusters.append(self.nbclusters)
 
             print >> self.wen,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , \
                 "clusters =", self.nbclusters, "error= ", gather_diff[len(gather_diff)-1], \
                 " +" if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "
 
             if delta < min_change:
+                print "\n", exact
+                print currenvalue_d
+                print self.get_initial_distribution().dot(currentUvecs_nd)
                 return currenvalue_d, gather_query, gather_diff, hullsuccess, hullexcept, t
             else:
                 previousvalue_d = currenvalue_d.copy()
@@ -555,9 +595,9 @@ class avi:
     @staticmethod
     def make_convex_hull(_dic, _label):
         """
-        :param _dic: avantages dictionary of a given cluster
+        :param _dic: AdvantagesDic of a given cluster
         :param _label: the key of the cluster
-        :return: [an array of advantages] avantages dictionnary of the convex hull
+        :return: AdvantagesDic of the convex hull
         """
         # change dictionary types to array and extract lists without their (s,a) pairs
         # TODO change the return type to avoid the work in justify_cluster: at the end of the try, _pairs[hull_vertices]
@@ -566,10 +606,6 @@ class avi:
         _pairs = []
         global hullsuccess
         global hullexcept
-
-        diclist = []  # TODO diclist is unused
-        for key, val in _dic.iteritems():
-            diclist.append((key, val))
 
         if _label == 'V': # TODO I do not cope with this case, which does not seem to happen ??
             for val in _dic.itervalues():
@@ -582,6 +618,7 @@ class avi:
         _points = np.array(_points)
         _pairs = np.array(_pairs)
 
+        # hull.vertices collects the indexes of of selected _points, and also of their s_a_pair.
         try:
             hull = ConvexHull(_points)
             hull_vertices = hull.vertices
@@ -597,7 +634,7 @@ class avi:
         # return hull_points
         hull_points = hull_points.tolist()
         hull_pairs = [ tuple(p) for p in hull_pairs] # converts back since np.arrays can't be dictionary keys
-        CH_advantages_dic = {k:v for (k,v) in zip(hull_pairs, hull_points)}
+        CH_advantages_dic = avi.AdvantagesDict({k:v for (k,v) in zip(hull_pairs, hull_points)})
         return CH_advantages_dic
 
     @staticmethod

@@ -10,20 +10,30 @@ if __name__ == '__main__':
     starts = time.clock()
     _d = 3
 
+    # pp = pickle.Pickler(open("param80-1.dmp", 'w'))
+    pup = pickle.Unpickler(open("param80-1.dmp", 'r'))
     # _lambda_rand = avi.interior_easy_points(_d)
-    # pickle.dump(_lambda_rand,open("lambda.dmp", 'w'))
-    _lambda_rand = pickle.load(open("lambda.dmp", 'r'))
-    print _lambda_rand
+    # pp.dump(_lambda_rand)
+    _lambda_rand = pup.load()
+    # print _lambda_rand
 
     # m = m_mdp.make_grid_VVMDP(_lambda_rand, n=3)
 
 
-    # _state, _action = 8, 5
+    # _state, _action = 80, 5
+    # pp.dump((_state,_action))
+    state, action = pup.load()
     # m = m_mdp.make_simulate_mdp_Yann(_state, _action, _lambda_rand, None)
-    # m.save('mdp.dmp')
-    m = m_mdp.reload('mdp.dmp')
+    # pp.dump(m)
+    m = pup.load()
 
-    Uvec = m.value_iteration(epsilon=0.00001)
+    # m.save('mdp.dmp')
+    # m = m_mdp.reload('mdp.dmp')
+
+    # Uvec = m.value_iteration(epsilon=0.00001)
+    # pp.dump(Uvec)
+    Uvec = pup.load()
+    print Uvec
     # Uvec = m.policy_iteration()  # returns the matrix of vectorial values of the best policy reached, starting from
     # # values all equal to 0 and iterating until actions dont change any more
     # print Uvec
@@ -36,6 +46,7 @@ if __name__ == '__main__':
     # print Uvec - Uvec1
 
     exact = m.initial_states_distribution().dot(Uvec)  # expected vectorial value for this best policy
+    # print exact
 
     #w = avi(m, _lambda_rand, _Lambda_inequalities)
 
@@ -44,11 +55,11 @@ if __name__ == '__main__':
                                             cluster_threshold=0.01, min_change=0.000001, exact=exact)
     print 'avi error', sol_avi[2][-1]
     print "Iterations", sol_avi[5],
-    print "Queries", sum(sol_avi[1])
+    print "Queries", sol_avi[1][-1]
 
-    # sol_AIweng = w.value_iteration_weng(k=100000, noise= None, threshold=0.001, exact = exact)
-    # print 'AIweng error', sol_AIweng[2][len(sol_AIweng[2])-1]
-    # print "Queries", sol_AIweng[1]
+    print "Pareto finds", w.pareto, "kDominance finds", w.kd, "queries performed", w.queries
+    print "lastly generated clusters", w.nbclusters,
+    print "hull used", sol_avi[3], "hull skipped", sol_avi[4]
 
     # w = weng(m, _lambda_rand, _Lambda_inequalities)
 
@@ -58,10 +69,9 @@ if __name__ == '__main__':
     # print 'weng error', sol_weng[2][-1]
     # print "Iterations", sol_weng[3],
     # print "Queries", sol_weng[1][-1]
-
-    print "Pareto finds", w.pareto, "kDominance finds", w.kd, "queries performed", w.queries
-    print "lastly generated clusters", w.nbclusters,
-    print "hull used", sol_avi[3], "hull skipped", sol_avi[4]
+    #
+    # print "Pareto finds", w.pareto, "kDominance finds", w.kd, "queries performed", w.queries
+    #
     stop = time.time()
     stops = time.clock()
     print "wall clock time used", stop - start, "system time used", stops - starts

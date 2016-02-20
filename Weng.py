@@ -59,7 +59,7 @@ class weng:
         E: constraint is equal than rhs"""
 
         self.prob.linear_constraints.add(lin_expr=constr, senses="E" * len(constr), rhs=rhs)
-        self.prob.write("show-Ldominance.lp")
+        # self.prob.write("show-Ldominance.lp")
         self.pareto = 0
         self.kd = 0
         self.queries = 0
@@ -88,7 +88,7 @@ class weng:
 
         ob = [(j, float(_V_best[j] - Q[j])) for j in range(0, _d)]
         self.prob.objective.set_linear(ob)
-        self.prob.write("show-Ldominance.lp")
+        # self.prob.write("show-Ldominance.lp")
         self.prob.solve()
 
         result = self.prob.solution.get_objective_value()
@@ -283,7 +283,7 @@ class weng:
             else:
                 Uvec_old_nd = Uvec_nd.copy()
 
-        print >> self. wen,  "iteration = ", t, "query =", gather_query[-1] , " error= ", gather_diff[-1],\
+        print >> self.wen,  "iteration = ", t, "query =", gather_query[-1] , " error= ", gather_diff[-1],\
         "+ " if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "
 
         return(Uvec_final_d, gather_query, gather_diff), t

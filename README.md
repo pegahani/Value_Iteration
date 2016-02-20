@@ -37,11 +37,16 @@ allow to retrieve the index from the readable form.
   An inequality is a list of size _d + 1_. 
   
   An advantages dictionnary is a dictionary where keys are pairs (state, action) and values are advantages (vectors 
-  of size d).  The set of clusters is a dictionary of advantages dictionaries where the key of each cluster is its 
-  number.
+  of size d).  
+  The set of clusters (clusters dictionary, or clusters advantages dictionary) is a dictionary of advantages 
+  dictionaries where the key of each cluster is its id, that is to say a number.
+  A clusters policy-values dictionary has the same cluster ids as keys, but values are pairs, with the 
+  policy-list (list of pairs (state, action) in the cluster) as first element (each state at most one) and a list of 
+  vectors, either the values or the advantages of these pairs, as second element
+  Finally, a clusters policy-expval dictionary is very similar to the policy-values case, but the second element of the 
+  value is a single vector (the expected value of the list of vectors in the policy-values case)
   
-  A policy-value node is a pair formed of: a polivy which is a dictionary of state:action correspondance, and the 
+  A policy-value-pair is a pair formed of: a policy-dict, which is a dictionary of state:action correspondance, and the 
   value vector(size d) associated to this policy.
   
-  _It seems that we could merge Query and QueryPolicies on tne one side, get_best and get_best_policies on the 
-  other side, since the \[1] can be used at calling time_
+  

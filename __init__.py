@@ -1,48 +1,89 @@
-from Value_Iteration import Weng
+from Weng import weng
 import m_mdp
-import advantage_iteration
-import pylab as plt
+from advantage_iteration import avi
+from matplotlib import pylab as plt
+import pickle
+import time
 
 if __name__ == '__main__':
+    start = time.time()
+    starts = time.clock()
+    _d = 3
 
-    _d = 5
+    # pp = pickle.Pickler(open("param80-1.dmp", 'w'))
+    pup = pickle.Unpickler(open("param80-1.dmp", 'r'))
+    # _lambda_rand = avi.interior_easy_points(_d)
+    # pp.dump(_lambda_rand)
+    _lambda_rand = pup.load()
+    # print _lambda_rand
 
-    _Lambda_inequalities = advantage_iteration.generate_inequalities(_d)
-    _lambda_rand = advantage_iteration.interior_easy_points(_d)
-
-    #m = m_mdp.make_grid_VVMDP()
-
-    _state, _action = 4, 5
-    m = m_mdp.make_simulate_mdp_Yann(_state, _action, _lambda_rand, None)
-
-    w = advantage_iteration.avi(m, _lambda_rand, _Lambda_inequalities)
-    w.setStateAction()  # should be in w.__init__ and implicitely performed by the previous line
+    # m = m_mdp.make_grid_VVMDP(_lambda_rand, n=3)
 
 
-    m.set_Lambda(_lambda_rand)  # should rather be set as argument of make_grid_VVMDP() line 13
-    Uvec = m.policy_iteration()  # returns the matrix of vectorial values of the policy reached, starting from Values 0
-                # and iterating until actions dont change any more
-    exact = m.initial_states_distribution().dot(Uvec) # expected value
+    # _state, _action = 80, 5
+    # pp.dump((_state,_action))
+    state, action = pup.load()
+    # m = m_mdp.make_simulate_mdp_Yann(_state, _action, _lambda_rand, None)
+    # pp.dump(m)
+    m = pup.load()
 
-    w = Weng.weng(m, _lambda_rand, _Lambda_inequalities)
-    sol_weng = w.value_iteration_weng(k=100000, noise= None, threshold=0.001, exact = exact)
+    # m.save('mdp.dmp')
+    # m = m_mdp.reload('mdp.dmp')
 
-    _Lambda_inequalities = advantage_iteration.generate_inequalities(_d)
+    # Uvec = m.value_iteration(epsilon=0.00001)
+    # pp.dump(Uvec)
+    Uvec = pup.load()
+    print Uvec
+    # Uvec = m.policy_iteration()  # returns the matrix of vectorial values of the best policy reached, starting from
+    # # values all equal to 0 and iterating until actions dont change any more
+    # print Uvec
+    #
+    # Uvec1 = m.policy_iteration(200)
+    # print Uvec - Uvec1
+    # Uvec = m.policy_iteration(50)
+    # print Uvec
+    # Uvec1 = m.policy_iteration(50)
+    # print Uvec - Uvec1
 
-    avi = advantage_iteration.avi(m, _lambda_rand, _Lambda_inequalities)
-    avi.setStateAction()
-    sol_avi = avi.value_iteration_with_advantages(k=100000, noise= None,
-                                                 cluster_error = 0.01, threshold = 0.001, exact = exact )
+    exact = m.initial_states_distribution().dot(Uvec)  # expected vectorial value for this best policy
+    # print exact
 
-    print 'weng error', sol_weng[2][len(sol_weng[2])-1]
-    print 'avi error', sol_avi[2][len(sol_avi[2])-1]
+    #w = avi(m, _lambda_rand, _Lambda_inequalities)
 
-    print "weng result", sol_weng
-    print "avi result", sol_avi
-    #print "lambda inequalities", avi.Lambda_inequalities
+    w = avi(m, _lambda_rand, [])
+    sol_avi = w.value_iteration_with_advantages(limit=100000, noise=None,
+                                            cluster_threshold=0.01, min_change=0.000001, exact=exact)
+    print 'avi error', sol_avi[2][-1]
+    print "Iterations", sol_avi[5],
+    print "Queries", sol_avi[1][-1]
 
-    ax = plt.subplot(111)
-    ax.plot(sol_weng[1], sol_weng[2],'b', marker='o')
-    ax.plot(sol_avi[1], sol_avi[2],'g',marker='o')
+    print "Pareto finds", w.pareto, "kDominance finds", w.kd, "queries performed", w.queries
+    print "lastly generated clusters", w.nbclusters,
+    print "hull used", sol_avi[3], "hull skipped", sol_avi[4]
 
-    plt.show()
+    # w = weng(m, _lambda_rand, _Lambda_inequalities)
+
+    # w = weng(m, _lambda_rand, [])
+    # sol_weng = w.value_iteration_weng(k=100000, noise= None, threshold=0.001, exact = exact)
+    #
+    # print 'weng error', sol_weng[2][-1]
+    # print "Iterations", sol_weng[3],
+    # print "Queries", sol_weng[1][-1]
+    #
+    # print "Pareto finds", w.pareto, "kDominance finds", w.kd, "queries performed", w.queries
+    #
+    stop = time.time()
+    stops = time.clock()
+    print "wall clock time used", stop - start, "system time used", stops - starts
+
+    #print "weng result", sol_weng
+    # print "avi result", sol_avi
+
+    # ax = plt.subplot(211)
+    # ax.plot(sol_weng[1], sol_weng[2],'b', marker='o')
+    # ax.set_title("Weng")
+    # ax = plt.subplot(212)
+    # ax.plot(sol_avi[1], sol_avi[2],'g',marker='o')
+    # ax.set_title("avi")
+    #
+    # plt.show()

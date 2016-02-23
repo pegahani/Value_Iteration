@@ -2,7 +2,7 @@ import numpy as np
 
 import sys
 
-sys.path.insert(0, '/Users/pegah/Pycharm/Value_Iteration')
+sys.path.insert(0, '/Users/pegah/Pycharm/Optimal-Policy/Value_Iteration')
 import advantage
 
 import utils

@@ -108,10 +108,9 @@ class weng:
         if new_constraint in inequality_list:
             return True
         else:
-            # for i in range(2 * self.mdp.d, len(inequality_list)):
-            for i in range(len(inequality_list)):  # the 2 * self.mdp.d spared testing the initial square, which is now in bounds
+            for i in range(len(inequality_list)):
                 first = True
-                for x, y in zip(inequality_list[i][1:], new_constraint)[1:]:
+                for x, y in zip(inequality_list[i], new_constraint)[1:]:
                     if x == 0 and y == 0:
                         continue
                     if first:
@@ -140,59 +139,95 @@ class weng:
         constr = []
         rhs = []
 
+        Vscal = self.Lambda.dot(_V_best)
+        Qscal = self.Lambda.dot(Q)
+        # choice of the best policy
         if not noise:
-            if self.Lambda.dot(_V_best) > self.Lambda.dot(Q):
-                new_constraints = bound+map(operator.sub, _V_best, Q)
-                if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
-                    c = [(j, float(_V_best[j] - Q[j])) for j in range(0, _d)]
-                    constr.append(zip(*c))
-                    rhs.append(0.0)
-                    self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-
-                    self.Lambda_inequalities.append(new_constraints)
-                    print >> self.wen,  "Constrainte", self.query_counter_, _V_best - Q, "|> 0"
-                    self.query_counter_ += 1
-                return _V_best
-
-            else:
-                new_constraints = bound+map(operator.sub, Q, _V_best)
-                if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
-                    c = [(j, float(Q[j] - _V_best[j])) for j in range(0, _d)]
-                    constr.append(zip(*c))
-                    rhs.append(0.0)
-                    self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-
-                    self.Lambda_inequalities.append(new_constraints)
-                    print >> self.wen, "Constrainte", self.query_counter_, Q - _V_best, "|> 0"
-                    self.query_counter_ += 1
-                return Q
+            keep = (Vscal > Qscal)
         else:
+            noise_value = random.gauss(0, Vscal * noise)
+            keep = (Vscal + noise_value > Qscal )
+        # Generating the new constraint in accordance
+        if keep:
+            new_constraints = bound + map(operator.sub, _V_best, Q)
+        else:
+            new_constraints = bound + map(operator.sub, Q, _V_best)
 
-            noise_value = random.gauss(0, noise)
-            #noise_vect = self.generate_noise(len(self.Lambda), noise)
-            #V_best_noisy = noise_vect + _V_best
-
-            #if self.Lambda.dot(V_best_noisy)>self.Lambda.dot(Q):
-            if self.Lambda.dot(_V_best)-self.Lambda.dot(Q) + noise_value > 0:
-
+        # memorizing it
+        if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
+            if keep:
                 c = [(j, float(_V_best[j] - Q[j])) for j in range(0, _d)]
-                constr.append(zip(*c))
-                rhs.append(0.0)
-                self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-
-                self.Lambda_inequalities.append(bound+map(operator.sub, _V_best, Q))
-                return _V_best
+                print >> self.wen,  "Constrainte", self.query_counter_, _V_best - Q, "|> 0"
             else:
-
                 c = [(j, float(Q[j] - _V_best[j])) for j in range(0, _d)]
-                constr.append(zip(*c))
-                rhs.append(0.0)
-                self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+                print >> self.wen, "Constrainte", self.query_counter_, Q - _V_best, "|> 0"
+            self.query_counter_ += 1
+            constr.append(zip(*c))
+            rhs.append(0.0)
+            self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+            self.Lambda_inequalities.append(new_constraints)
 
-                self.Lambda_inequalities.append( bound+map(operator.sub, Q, _V_best))
-                return Q
+        # return the result
+        if keep:
+            return _V_best
+        else:
+            return Q
 
-                # return None
+
+
+        # if not noise:
+        #     if self.Lambda.dot(_V_best) > self.Lambda.dot(Q):
+        #         new_constraints = bound+map(operator.sub, _V_best, Q)
+        #         if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
+        #             c = [(j, float(_V_best[j] - Q[j])) for j in range(0, _d)]
+        #             constr.append(zip(*c))
+        #             rhs.append(0.0)
+        #             self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+        #
+        #             self.Lambda_inequalities.append(new_constraints)
+        #             print >> self.wen,  "Constrainte", self.query_counter_, _V_best - Q, "|> 0"
+        #             self.query_counter_ += 1
+        #         return _V_best
+        #
+        #     else:
+        #         new_constraints = bound+map(operator.sub, Q, _V_best)
+        #         if not self.is_already_exist(self.Lambda_inequalities, new_constraints):
+        #             c = [(j, float(Q[j] - _V_best[j])) for j in range(0, _d)]
+        #             constr.append(zip(*c))
+        #             rhs.append(0.0)
+        #             self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+        #
+        #             self.Lambda_inequalities.append(new_constraints)
+        #             print >> self.wen, "Constrainte", self.query_counter_, Q - _V_best, "|> 0"
+        #             self.query_counter_ += 1
+        #         return Q
+        # else:
+        #
+        #     noise_value = random.gauss(0, noise)
+        #     #noise_vect = self.generate_noise(len(self.Lambda), noise)
+        #     #V_best_noisy = noise_vect + _V_best
+        #
+        #     #if self.Lambda.dot(V_best_noisy)>self.Lambda.dot(Q):
+        #     if self.Lambda.dot(_V_best)-self.Lambda.dot(Q) + noise_value > 0:
+        #
+        #         c = [(j, float(_V_best[j] - Q[j])) for j in range(0, _d)]
+        #         constr.append(zip(*c))
+        #         rhs.append(0.0)
+        #         self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+        #
+        #         self.Lambda_inequalities.append(bound+map(operator.sub, _V_best, Q))
+        #         return _V_best
+        #     else:
+        #
+        #         c = [(j, float(Q[j] - _V_best[j])) for j in range(0, _d)]
+        #         constr.append(zip(*c))
+        #         rhs.append(0.0)
+        #         self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+        #
+        #         self.Lambda_inequalities.append( bound+map(operator.sub, Q, _V_best))
+        #         return Q
+        #
+        #         # return None
 
     def get_best(self, _V_best, Q, _noise):
 
@@ -274,6 +309,7 @@ class weng:
                 " +" if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "
 
             if delta < threshold:
+                self.prob.write("show-LdominanceWeng.lp")
                 return Uvec_final_d, gather_query, gather_diff, t
             else:
                 Uvec_old_nd = Uvec_nd.copy()
@@ -281,7 +317,7 @@ class weng:
         print >> self.wen,  "iteration = ", t, "query =", gather_query[-1] , " error= ", gather_diff[-1],\
         "+ " if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "
 
-        return(Uvec_final_d, gather_query, gather_diff), t
+        return Uvec_final_d, gather_query, gather_diff, t
 
 # ********************************************
 def generate_inequalities(_d):

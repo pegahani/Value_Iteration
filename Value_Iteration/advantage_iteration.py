@@ -35,6 +35,7 @@ class avi:
         self.Lambda[:] = _lambda
 
         self.Lambda_inequalities = _lambda_inequalities
+        # self.Lambda_inequalities = np.zeros((len(_lambda),0), dtype=ftype)
         self.query_counter_ = 0
 
         """initialize linear programming as a minimization problem"""
@@ -77,7 +78,6 @@ class avi:
         self.Lambda_inequalities = _lambda_inequalities
 
         self.query_counter_ = 0
-        self.query_counter_with_advantages = 0
 
         # reset prob for the new example
 
@@ -164,25 +164,19 @@ class avi:
         if new_constraint in inequality_list:
             return True
         else:
-            # TODO correct the range now that the 0 <x<1 are in bounds
-            # for i in range(2 * self.mdp.d, len(inequality_list)): # at start, skips the cube defining constraints
             for i in range(len(inequality_list)):
-
-                division_list = [np.float32(x / y) for x, y in zip(inequality_list[i], new_constraint)[1:]if not y == 0]
-                if all(x == division_list[0] for x in division_list):
+                first = True
+                for x, y in zip(inequality_list[i], new_constraint)[1:]:
+                    if x == 0 and y == 0:
+                        continue
+                    if first:
+                        u, v = x , y
+                        first = False
+                    elif u * y != x * v :
+                        break
+                else :
                     return True
-                # thisone = True
-                # for j0 in range (self.mdp.d):
-                #     if inequality_list[i][j0] != 0 or new_constraint[j0+1] != 0 :
-                #         break
-                # for j in range (j0 + 1, self.mdp.d):
-                #     if not inequality_list[i][j0] * new_constraint[j + 1] - inequality_list[i][j] * new_constraint[
-                #                 j0 + 1] == 0:
-                #         thisone = False
-                #         break
-                # if thisone == True:
-                #     return thisone
-
+        print "new_constraint", new_constraint
         return False
 
     def generate_noise(self, _d, _noise_deviation):
@@ -206,55 +200,66 @@ class avi:
         constr = []
         rhs = []
 
+        Vscal = self.Lambda.dot(_V_best[1])
+        Qscal = self.Lambda.dot(Q[1])
+        # choice of the best policy
         if not noise:
-            keep = (self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]))
+            keep = (Vscal > Qscal)
+        else:
+            noise_value = random.gauss(0, Vscal * noise)
+            keep = (Vscal + noise_value > Qscal )
+        # Generating the new constraint in accordance
+        if keep:
+            new_constraints = bound + map(operator.sub, _V_best[1], Q[1])
+        else:
+            new_constraints = bound + map(operator.sub, Q[1], _V_best[1])
+
+        # memorizing it
+        if not self.already_exists(self.Lambda_inequalities, new_constraints):
             if keep:
-                new_constraints = bound + map(operator.sub, _V_best[1], Q[1])
+                c = [(j, float(_V_best[1][j] - Q[1][j])) for j in range(0, _d)]
+                print >> self.wen,  "Constrainte", self.query_counter_, _V_best[1] - Q[1], "|> 0"
             else:
-                new_constraints = bound + map(operator.sub, Q[1], _V_best[1])
-            if not self.already_exists(self.Lambda_inequalities, new_constraints):
-                if keep:
-                    c = [(j, float(_V_best[1][j] - Q[1][j])) for j in range(0, _d)]
-                    print >> self.wen,  "Constrainte", self.query_counter_, _V_best[1] - Q[1], "|> 0"
-                else:
-                    c = [(j, float(Q[1][j] - _V_best[1][j])) for j in range(0, _d)]
-                    print >> self.wen, "Constrainte", self.query_counter_, Q[1] - _V_best[1], "|> 0"
-                self.query_counter_ += 1
-                constr.append(zip(*c))
-                rhs.append(0.0)
-                self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-                self.Lambda_inequalities.append(new_constraints)
-            if keep:
-                return _V_best
-            else:
-                return Q
+                c = [(j, float(Q[1][j] - _V_best[1][j])) for j in range(0, _d)]
+                print >> self.wen, "Constrainte", self.query_counter_, Q[1] - _V_best[1], "|> 0"
+            self.query_counter_ += 1
+            constr.append(zip(*c))
+            rhs.append(0.0)
+            self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+            self.Lambda_inequalities.append(new_constraints)
+
+        # return the result
+        if keep:
+            return _V_best
+        else:
+            return Q
 
         #noise_vect = self.generate_noise(len(self.Lambda), noise)
         #V_best_noisy = noise_vect + _V_best[1]
 
-        noise_value = random.gauss(0, noise)
-
-        #if Lambda_noisy.dot(_V_best[1]) > Lambda_noisy.dot(Q[1]):
-        if self.Lambda.dot(_V_best[1])-self.Lambda.dot(Q[1]) + noise_value > 0:
-            #print >>log, "correct response",self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]), "wrong response",True
-
-            c = [(j, float(_V_best[1][j] - Q[1][j])) for j in range(0, _d)]
-            constr.append(zip(*c))
-            rhs.append(0.0)
-            self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-
-            self.Lambda_inequalities.append(bound+map(operator.sub, _V_best[1], Q[1]))
-            return _V_best
-        else:
-            #print >>log, "correct response",self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]), "wrong response",False
-
-            c = [(j, float(Q[1][j] - _V_best[1][j])) for j in range(0, _d)]
-            constr.append(zip(*c))
-            rhs.append(0.0)
-            self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-
-            self.Lambda_inequalities.append( bound+map(operator.sub, Q[1], _V_best[1]))
-            return Q
+        # noise_value = random.gauss(0, noise)
+        #
+        # #if Lambda_noisy.dot(_V_best[1]) > Lambda_noisy.dot(Q[1]):
+        # if self.Lambda.dot(_V_best[1])-self.Lambda.dot(Q[1]) + noise_value > 0:
+        #     #print >>log, "correct response",self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]), "wrong response",True
+        #
+        #     c = [(j, float(_V_best[1][j] - Q[1][j])) for j in range(0, _d)]
+        #     constr.append(zip(*c))
+        #     rhs.append(0.0)
+        #     self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+        #
+        #     self.Lambda_inequalities.append(bound+map(operator.sub, _V_best[1], Q[1]))
+        #     return _V_best
+        # else:
+        #     #print >>log, "correct response",self.Lambda.dot(_V_best[1]) > self.Lambda.dot(Q[1]), "wrong response",False
+        #
+        #     c = [(j, float(Q[1][j] - _V_best[1][j])) for j in range(0, _d)]
+        #     constr.append(zip(*c))
+        #     rhs.append(0.0)
+        #     self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
+        #
+        #     self.Lambda_inequalities.append( bound+map(operator.sub, Q[1], _V_best[1]))
+        #     return Q
 
     def get_best_policies(self, _V_best, Q, _noise):
 
@@ -348,26 +353,27 @@ class avi:
 
             gather_query.append(self.query_counter_)
             gather_diff.append(self.Lambda.dot(exact) - self.Lambda.dot(currenvalue_d))
-            gather_clusters.append(self.nbclusters)
+            gather_clusters.append(self.adv.nbclusters)
 
             print >> self.wen,  "iteration = ", t, "query =", gather_query[len(gather_query)-1] , \
-                "clusters =", self.nbclusters, "error= ", gather_diff[len(gather_diff)-1], \
+                "clusters =", self.adv.nbclusters, "error= ", gather_diff[len(gather_diff)-1], \
                 " +" if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "
 
             if delta < min_change:
+                self.prob.write("show-LdominanceAvi.lp")
                 print "\n", exact
                 print currenvalue_d
                 print self.adv.get_initial_distribution().dot(currentUvecs_nd)
-                return currenvalue_d, gather_query, gather_diff, hullsuccess, hullexcept, t
+                return currenvalue_d, gather_query, gather_diff, gather_clusters, hullsuccess, hullexcept, t
             else:
                 previousvalue_d = currenvalue_d.copy()
 
         print >> self.wen,  "iteration = ", t, "query =", gather_query[-1] ,  \
-                "clusters =", self.nbclusters," error= ", gather_diff[-1],\
-            " +" if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "
+                "clusters =", self.adv.nbclusters," error= ", gather_diff[-1],\
+            " +" if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else ""
 
         # noinspection PyUnboundLocalVariable
-        return currenvalue_d, gather_query, gather_diff, hullsuccess, hullexcept, t
+        return currenvalue_d, gather_query, gather_diff, gather_clusters, hullsuccess, hullexcept, t
 
 #************ noise ************************
     @staticmethod

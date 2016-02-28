@@ -212,10 +212,10 @@ class VVMdp:
                 Udot[s] = udot
 
             if (newp - lastp).any():
-                print t, ":", newp, Udot
+                #print t, ":", newp, Udot
                 lastp[:] = newp
             if delta < epsilon * (1 - gamma) / gamma: # total expected improvement for adding delta
-                print t, ":", newp, Udot
+                #print t, ":", newp, Udot
                 return Uvec
         return Uvec
 

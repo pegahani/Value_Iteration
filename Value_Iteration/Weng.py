@@ -120,7 +120,7 @@ class weng:
                         break
                 else :
                     return True
-        print "new_constraint", new_constraint
+        #print "new_constraint", new_constraint
         return False
 
     @staticmethod
@@ -258,7 +258,7 @@ class weng:
 
     # ****************************  comparison part ****************************************
 
-    def value_iteration_weng(self, k, noise, threshold, exact):
+    def value_iteration_weng(self, k, noise, threshold, exact, _error_exat_approx = None):
         """
         this function find the optimal v_bar of dimension d using Interactive value iteration method
         :param k: max number of iteration
@@ -280,7 +280,7 @@ class weng:
         delta = 0.0  # seems useless and harmless
 
         for t in range(k):
-            print t,
+            #print t,
             if t % 50 == 0:
                 print ""
             #Uvec_nd = np.zeros((n, d), dtype=ftype)
@@ -302,17 +302,26 @@ class weng:
             gather_query.append(self.query_counter_)
             gather_diff.append(abs( np.dot(self.get_Lambda(),Uvec_final_d) - np.dot(self.get_Lambda(), exact)))
 
+            #temporary: just for approximation project to harmonize a stopping criteria regarding aproximate error
+            if _error_exat_approx:
+                new_delta = gather_diff[-1]
+                if new_delta < _error_exat_approx:
+                    return Uvec_final_d, gather_query, gather_diff, t
+                else:
+                    Uvec_old_nd = Uvec_nd.copy()
+
             #gather_diff.append(linfDistance( [np.array(Uvec_final_d)] , [np.array(exact)], 'chebyshev')[0,0])
             #gather_diff.append(delta) # problem de side effect
 
             print >> self.wen, "iteration = ", t, "query =", gather_query[-1] , " error= ", gather_diff[-1],\
                 " +" if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "
 
-            if delta < threshold:
-                self.prob.write("show-LdominanceWeng.lp")
-                return Uvec_final_d, gather_query, gather_diff, t
-            else:
-                Uvec_old_nd = Uvec_nd.copy()
+            if not _error_exat_approx:
+                if delta < threshold:
+                    self.prob.write("show-LdominanceWeng.lp")
+                    return Uvec_final_d, gather_query, gather_diff, t
+                else:
+                    Uvec_old_nd = Uvec_nd.copy()
 
         print >> self.wen,  "iteration = ", t, "query =", gather_query[-1] , " error= ", gather_diff[-1],\
         "+ " if (len(gather_diff) > 2 and gather_diff[-2] < gather_diff[-1]) else " "

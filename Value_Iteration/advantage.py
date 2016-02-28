@@ -112,6 +112,11 @@ class Advantage:
         z = hac.linkage(advantages_array, method='complete', metric='cosine')
         tol = -1e-16
         z.real[z.real < tol] = 0.0
+
+        if z.size == 0:
+            print "z", z
+            return {}
+
         labels = hac.fcluster(z, _cluster_threshold, criterion='distance')
 
         # pyplot.scatter(points_array[:,0], points_array[:,1], c=labels)

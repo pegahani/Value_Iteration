@@ -27,7 +27,6 @@ class propagation_V:
         """
         return {i:[v_n[i]] for i in range(len(v_n))}
 
-
     """P_initial includes [0,..,0] vector here."""
     def make_convex_hull(self, P_initial, hull_vertices):
         """
@@ -42,6 +41,7 @@ class propagation_V:
             P_initial = P_initial[hull_vertices, :]
         except scipy.spatial.qhull.QhullError:
             print 'convex hull is not available'
+            print "P_initial", P_initial
             P_initial = P_initial
             hull_vertices = range(P_initial.shape[0])
 
@@ -223,13 +223,18 @@ class propagation_V:
         frontier = temp[1]
 
         iteration = 0
-        while not(self.IsEqual(P_initial, P_new)):
-        #for i in range(5):
-            P_initial = P_new
-            temp = self.update_convex_hull_epsilon(frontier, prob)
-            P_new = temp[0]
-            frontier = temp[1]
-            iteration += 1
+        #while not(self.IsEqual(P_initial, P_new)):
+        for i in range(250):
+            if not(self.IsEqual(P_initial, P_new)):
+                P_initial = P_new
+                temp = self.update_convex_hull_epsilon(frontier, prob)
+                P_new = temp[0]
+                frontier = temp[1]
+                iteration += 1
+            else:
+                return ([val for val in P_new[1:] if not all(v == 0.0 for v in val)], iteration)
+            if i % 10 == 0:
+                print i,
 
-        print 'iteration', iteration
-        return [val for val in P_new[1:] if all(v != 0 for v in val)]
+        #print 'iteration', iteration
+        return ([val for val in P_new[1:] if not all(v == 0.0 for v in val)], iteration)

@@ -176,7 +176,7 @@ class avi:
                         break
                 else :
                     return True
-        print "new_constraint", new_constraint
+        #print "new_constraint", new_constraint
         return False
 
     def generate_noise(self, _d, _noise_deviation):
@@ -343,7 +343,7 @@ class avi:
             for val in policies.itervalues():
                 best_policyvaluepair = self.get_best_policies(best_policyvaluepair, val, noise)
 
-            print t, ":", len(best_policyvaluepair[0]),
+            #print t, ":", len(best_policyvaluepair[0]),
             if t%25 == 0:
                 print
             currentUvecs_nd = self.mdp.update_matrix(policy_p=best_policyvaluepair[0], _Uvec_nd=currentUvecs_nd)

@@ -54,14 +54,17 @@ class Problem:
         """
 
         advantages_pair_vector_dic = self.mdp.calculate_advantages_dic(state[2], True)
-        advantages_pair_vector_dic = self.adv.clean_Points(advantages_pair_vector_dic)
+        advantages_pair_vector_dic_opt = self.adv.clean_Points(advantages_pair_vector_dic)
+
+        if not advantages_pair_vector_dic_opt:
+            return {}
 
         #TODO add same condition like advantage_iteration.py line 316:
         #    if advantages_dic == {}:
         #       print "dictionaire vide"
         #       return currenvalue_d, gather_query, gather_diff
 
-        advantages_pair_vector_dic = self.adv.AdvantagesDict(advantages_pair_vector_dic)
+        advantages_pair_vector_dic = self.adv.AdvantagesDict(advantages_pair_vector_dic_opt)
 
         cluster_advantages = self.adv.accumulate_advantage_clusters(state[2], advantages_pair_vector_dic, self.adv.cluster_error)
         policies = self.adv.declare_policies(cluster_advantages, state[0])

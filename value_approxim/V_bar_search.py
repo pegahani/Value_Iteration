@@ -118,10 +118,9 @@ class V_bar_search:
         if new_constraint in inequality_list:
             return True
         else:
-            # for i in range(2 * self.mdp.d, len(inequality_list)):
-            for i in range(len(inequality_list)):  # the 2 * self.mdp.d spared testing the initial square, which is now in bounds
+            for i in range(len(inequality_list)):
                 first = True
-                for x, y in zip(inequality_list[i][1:], new_constraint)[1:]:
+                for x, y in zip(inequality_list[i], new_constraint)[1:]:
                     if x == 0 and y == 0:
                         continue
                     if first:
@@ -131,52 +130,51 @@ class V_bar_search:
                         break
                 else :
                     return True
-        print "new_constraint", new_constraint
         return False
 
-    def Query(self, V_d, U_d):
-
-        """
-        cmpare two d dimensional vectors and returns back the most prefered one regarding the selected lambda (in other
-        word: user)
-        :param V_d: d dimensional vector
-        :param U_d: d dimensional vector
-        :return: 1 if V_d > U_d otherwise -1
-        """
+    def Query(self, _V_best, Q, noise):
 
         bound = [0.0]
-        _d = len(V_d)
+        _d = len(_V_best)
 
         constr = []
         rhs = []
 
-        if self.lam_random.dot(V_d) > self.lam_random.dot(U_d):
-            new_constraints = bound+map(operator.sub, V_d, U_d)
-            #if not self.is_already_exist(self.Lambda_ineqalities, new_constraints):
-            #TODO may be we can change vector type from float to float32. like that is_already_exist function will be more effective
-            c = [(j, float(V_d[j] - U_d[j])) for j in range(0, _d)]
-            constr.append(zip(*c))
-            rhs.append(0.0)
-            self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-            self.Lambda_ineqalities.append(new_constraints)
-            self.query_counter_ += 1
-            return 1
-
+        Vscal = self.lam_random.dot(_V_best)
+        Qscal = self.lam_random.dot(Q)
+        # choice of the best policy
+        if not noise:
+            keep = (Vscal > Qscal)
         else:
-            new_constraints = bound+map(operator.sub, U_d, V_d)
+            noise_value = random.gauss(0, Vscal * noise)
+            keep = (Vscal + noise_value > Qscal )
+        # Generating the new constraint in accordance
+        if keep:
+            new_constraints = bound + map(operator.sub, _V_best, Q)
+        else:
+            new_constraints = bound + map(operator.sub, Q, _V_best)
 
-            #TODO check is_already_exist function: it seems that it has a problem
-            #if not self.is_already_exist(self.Lambda_ineqalities, new_constraints):
-            c = [(j, float(U_d[j] - V_d[j])) for j in range(0, _d)]
+        #TODO check is_already_exist function: it seems that it has a problem
+        # memorizing it
+        if not self.is_already_exist(self.Lambda_ineqalities, new_constraints):
+            if keep:
+                c = [(j, float(_V_best[j] - Q[j])) for j in range(0, _d)]
+                #print >> self.wen,  "Constrainte", self.query_counter_, _V_best - Q, "|> 0"
+            else:
+                #TODO may be we can change vector type from float to float32. like that is_already_exist function will be more effective
+                c = [(j, float(Q[j] - _V_best[j])) for j in range(0, _d)]
+                #print >> self.wen, "Constrainte", self.query_counter_, Q - _V_best, "|> 0"
+            self.query_counter_ += 1
             constr.append(zip(*c))
             rhs.append(0.0)
             self.prob.linear_constraints.add(lin_expr=constr, senses="G" * len(constr), rhs=rhs)
-
             self.Lambda_ineqalities.append(new_constraints)
-            self.query_counter_ += 1
-            return -1
 
-        #return None
+        # return the result
+        if keep:
+            return 1
+        else:
+            return -1
 
     #******************functions related to comparisons***********
     def find_closer_pair(self, ambig_list, random_lambda_numbers):
@@ -199,11 +197,17 @@ class V_bar_search:
         for item in ambig_list:#initialize values at 0.0
             probability_dic[item] = 0.0
 
+        #list of selected random lambda in Lambda
+        selected_lambda_list = [] #list of selected random lambda
+        for j in xrange(random_lambda_numbers):
+            selected_lambda_list.append(random_point_polytop(self.Lambda_ineqalities))
+
         """count number of times that V_i is better than V_j for random_lambda_numbers times of selecting random lambda
         in Lambda polytope"""
         for i in ambig_list:
             for j in xrange(random_lambda_numbers):
-                selected_lambda = random_point_polytop(self.Lambda_ineqalities)
+                #choose from list of selected random lambdas
+                selected_lambda = selected_lambda_list[j] #random_point_polytop(self.Lambda_ineqalities)
                 if(np.dot(selected_lambda, v_bar_list[i[0]]) - np.dot(selected_lambda, v_bar_list[i[1]]) >=  0 ):
                     probability_dic[i] += 1
 
@@ -304,7 +308,7 @@ class V_bar_search:
             closer = self.find_closer_pair(ambig_list, _random_lambda_number)
 
             #define a label among {-1,1} for closer pair (i,j). 1 if v_i>V-j otherwise -1
-            label = self.Query(V_bar_list[closer[0]], V_bar_list[closer[1]])
+            label = self.Query(V_bar_list[closer[0]], V_bar_list[closer[1]], None)
             #add closer pair to not_ambig_dic dictionary
             not_ambig_dic[(closer)] = label
 
@@ -324,5 +328,6 @@ class V_bar_search:
                         "ambig_list should be null. then there is a problem in the code"
 
         #it returns the V_d at the top of our ranking!!
+        print 'not_ambig_dic', not_ambig_dic
         v_best = self.get_Best_vector(not_ambig_dic)
-        return v_best
+        return (v_best, self.query_counter_)

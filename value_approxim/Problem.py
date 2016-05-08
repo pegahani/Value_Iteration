@@ -2,8 +2,10 @@ import numpy as np
 
 import sys
 
-sys.path.insert(0, '/Users/pegah/Pycharm/Value_Iteration')
-import advantage
+from Value_Iteration import advantage
+
+sys.path.insert(0, '../Value_Iteration')
+#import ../Value_Iteration/advantage
 
 import utils
 

@@ -8,6 +8,7 @@ import sys
 from random_polytope import random_point_polytop
 
 ftype = np.float32
+np.random.seed(314159265)
 
 class V_bar_search:
 
@@ -74,8 +75,17 @@ class V_bar_search:
 
         ob = [(j, float(_V_best[j] - Q[j])) for j in range(0, _d)]
         self.prob.objective.set_linear(ob)
+
+        #TODO Emiliano
+        #self.prob.parameters.simplex.limits.lowerobj = -0.001
+        #TODO Emiliano
+
         self.prob.write("show-Ldominance.lp")
         self.prob.solve()
+
+        #TODO Emiliano
+        #self.prob.parameters.simplex.limits.lowerobj = -1e+75
+        #TODO Emiliano
 
         result = self.prob.solution.get_objective_value()
         if result < 0.0:
@@ -89,7 +99,7 @@ class V_bar_search:
         :param V_d: d dimensional vector
         :param U_d: d dimensional vector
         :return: returns back True if two vectors are comparable using pareto or Kdominance methods. Otherwise it returns
-        False. The label including 1 or -1 represent respectively V_d is suoerior to U_d or U_d is suoerior to V_d
+        False. The label including 1 or -1 represent respectively V_d is superior to U_d or U_d is superior to V_d
         """
 
         #if pareto check not been already check, test it here
@@ -216,6 +226,8 @@ class V_bar_search:
         to 0.5"""
         for key,val in probability_dic.items():
             probability_dic[key] = np.abs(val/random_lambda_numbers - 0.5)
+            #if val == 0:
+            #    self.markdefined(key, ambig_list)
 
         """select a cut like \lambda.(v_i - v_j) generated from (v_i, v_j) in ambig_list that devides Lambda polytope
         approximately to two parts """
@@ -223,7 +235,7 @@ class V_bar_search:
         """this method choose the first pair, if there are some pairs with the same probability"""
         #TODO may be add a method to select randomly among pairs with the same probability
 
-        return closer_pair
+        return (closer_pair, ambig_list)
 
     def clean_ambiguity(self, _ambig_list, _not_ambig_dic):
 
@@ -248,17 +260,20 @@ class V_bar_search:
         for pair in _ambig_list:
             tempo = self.IsComparable(V_bar_list[pair[0]], V_bar_list[pair[1]], pareto_check = False)
             if tempo[1]:
-                    not_ambig_dic[pair] = tempo[0]
-                    ambig_list.remove(pair)
+                print 'this pair is not amboguous too', pair
+                not_ambig_dic[pair] = tempo[0]
+                ambig_list = self.markdefined(pair,tempo[0], ambig_list)
 
         return (ambig_list, not_ambig_dic)
 
-    def get_Best_vector(self, _not_ambig_dic):
+    def get_Best_vector_1(self, _not_ambig_dic):
         """
         it takes a dictionary of all not ambiguous pairs and find the most prefered one according to their labels
         :param _not_ambig_dic: dictionary of all pairs in V_bar_list_d with their labels
         :return: the best v_d^* in V_bar_list_d
         """
+
+        print '_not_ambig_dic', _not_ambig_dic
         v_bar_list = self.V_bar_list_d
 
         #score of each v_bar inside the given v_bar_list which is 0 at the begining for each V_bar
@@ -273,12 +288,125 @@ class V_bar_search:
             else:
                 sys.exit("pair labels are 1 or -1 not something else!!")
 
+        print "indexes", indexes
+        print 'v_bar_list', v_bar_list
         #index of maximum value in indexes list
         max_index = indexes.index(max(indexes))
+
         return v_bar_list[max_index]
 
-    "this function returns back set of optimal V_bars, if I receive more than one It should have a theoretical error"
+    def get_Best_vector(self, _not_ambig_dic):
+        """
+        it takes a dictionary of all not ambiguous pairs and find the most prefered one according to their labels
+        :param _not_ambig_dic: dictionary of all pairs in V_bar_list_d with their labels
+        :return: the best v_d^* in V_bar_list_d
+        """
+        v_bar_list = self.V_bar_list_d
+        vector_indexes = range(len(v_bar_list))
+
+        for key, val in _not_ambig_dic.items():
+            if val == -1:
+                if key[0] in vector_indexes:
+                    vector_indexes.remove(key[0])
+            elif val == 1:
+                if key[1] in vector_indexes:
+                    vector_indexes.remove(key[1])
+
+        assert len(vector_indexes) == 1, \
+                 "there shoul be a problem in removing dominated elements"
+
+        return v_bar_list[vector_indexes[0]]
+
+    def union(self, a_list, b_list):
+        """
+        union two lists of pairs
+        :param a: first list of pairs
+        :param b: second list of pairs
+        :return: list of their union
+        """
+        for e in b_list:
+            if e not in a_list:
+                a_list.append(e)
+
+        return a_list
+
+    def markdefined(self, _pair, labe,  _ambig_list):
+        """
+        :param _pair: a pair of vector like (v_i, v_j)
+        :param _ambig_list: list of ambiguous pairs
+        :return: returns new list of ambiguous list after removing all useless pairs
+        """
+        _ambig_list_tempo = copy.copy(_ambig_list)
+        if labe == 1:
+            j = _pair[1]
+        else:
+            j = _pair[0]
+
+        #counts all pairs either with v_j as a first element of pair or second element of pair
+        for element in _ambig_list:
+            if (element[0] == j or element[1] == j):
+                _ambig_list_tempo.remove(element)
+
+        return _ambig_list_tempo
+
+    """Francois Algorithm"""
     def v_optimal(self, _random_lambda_number):
+
+        V_bar_list = self.V_bar_list_d
+        V_bar_len = len(self.V_bar_list_d)
+
+        ambig_list = []
+        not_ambig_dic = {}
+
+        """make list of all pairs"""
+        for j in range(0, V_bar_len):
+            for i in range(0, j):
+                ambig_list.append((i,j))
+
+        """define all comparable pairs in the first glance"""
+        for j in range(0, V_bar_len):
+            for i in range(0, j):
+                tempo = self.IsComparable(V_bar_list[i], V_bar_list[j], pareto_check= True)
+                #if a pair is comparable
+                if tempo[1]:
+                    not_ambig_dic[(i,j)] = (tempo[0])
+                    ambig_list = self.markdefined((i,j), tempo[0] , ambig_list)
+
+        print 'ambig_list before', ambig_list
+
+        iteration = 0
+        # """until ambig_list is not empty"""
+        while ambig_list:
+            iteration += 1
+
+            temp = self.find_closer_pair(ambig_list, _random_lambda_number)
+            closer = temp[0]
+            print 'closer', closer
+            ambig_list = temp[1]
+
+            label = self.Query(V_bar_list[closer[0]], V_bar_list[closer[1]], None)
+            print 'label for closer', label
+            not_ambig_dic[(closer)] = label
+            ambig_list = self.markdefined(closer, label, ambig_list)
+            print 'ambig_list after new closer', ambig_list
+
+            ambig_notAmbig_pair = self.clean_ambiguity(ambig_list, not_ambig_dic)
+            ambig_list = ambig_notAmbig_pair[0]
+            not_ambig_dic = ambig_notAmbig_pair[1]
+
+            print 'ambig_list final', ambig_list
+            print 'not ambig final', not_ambig_dic
+
+        assert not ambig_list ,\
+                        "ambig_list should be null. then there is a problem in the code"
+
+        #it returns the V_d at the top of our ranking!!
+        v_best = self.get_Best_vector(not_ambig_dic)
+        print "v_best", v_best
+        return (v_best, self.query_counter_)
+
+    "this function returns back set of optimal V_bars, if I receive more than one It should have a theoretical error"
+    def v_optimal_1(self, _random_lambda_number):
         """
         this function returns the optimal V_bar for given set of optimal V_ds: self.V_bar
         :return: optimal V_bar of dimension d
@@ -293,12 +421,17 @@ class V_bar_search:
         for j in range(0, V_bar_len):
             for i in range(0, j):
                 tempo = self.IsComparable(V_bar_list[i], V_bar_list[j], pareto_check= True)
+                #if a pair is comparable
                 if tempo[1]:
                     not_ambig_dic[(i,j)] = (tempo[0])
+                #if a pair is not comparable
                 else:
                     ambig_list.append((i,j))
 
         iteration = 0
+
+        print 'ambig_list', ambig_list
+        print 'not_ambig_dic', not_ambig_dic
 
         #TODO check it later to be sure about the while loop execution occurency
         """until ambig_list is not empty"""
@@ -307,7 +440,9 @@ class V_bar_search:
             iteration+= 1
             closer = self.find_closer_pair(ambig_list, _random_lambda_number)
 
-            #define a label among {-1,1} for closer pair (i,j). 1 if v_i>V-j otherwise -1
+            print 'closer', closer
+
+            #define a label among {-1,1} for closer pair (i,j). 1 if v_i>v_j otherwise -1
             label = self.Query(V_bar_list[closer[0]], V_bar_list[closer[1]], None)
             #add closer pair to not_ambig_dic dictionary
             not_ambig_dic[(closer)] = label

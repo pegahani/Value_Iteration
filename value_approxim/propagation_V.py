@@ -135,9 +135,9 @@ class propagation_V:
         #TODO may be using frontier is not anymore useful in our new method.
         for node in frontier.A:
             for child in node.expand(problem= problem):
-                if not (self.check_epsilon(child.state[1], P_initial, self.epsilon_error)):
-                    frontier_addition.append(child)
-                    P_new = np.vstack([P_new, child.state[1]])
+                #if not (self.check_epsilon(child.state[1], P_initial, self.epsilon_error)):
+                frontier_addition.append(child)
+                P_new = np.vstack([P_new, child.state[1]])
         """at the end of this loop, it added all new generated vectors of each vertice too"""
 
         length_hull_vertices = frontier.__len__()
@@ -203,7 +203,7 @@ class propagation_V:
         '''
         for i in range(self.d):
             m.set_Lambda(np.array([1 if j==i else 0 for j in xrange(self.d)]))
-            Uvec_n_d = m.policy_iteration()
+            Uvec_n_d = m.value_iteration(epsilon=0.00001)
             v_d = m.initial_states_distribution().dot(Uvec_n_d)
             n = Problem.Node([self.produce_policy(m.best_policy(Uvec_n_d)), v_d, Uvec_n_d])
             frontier.append(n)

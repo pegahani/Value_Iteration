@@ -295,12 +295,17 @@ class weng:
 
                 Uvec_nd[s] = _V_best_d
 
+                Uvec_temp = self.get_initial_distribution().dot(Uvec_nd)
+                gather_query.append(self.query_counter_)
+                gather_diff.append(abs( np.dot(self.get_Lambda(),Uvec_temp) - np.dot(self.get_Lambda(), exact)))
+
+
             Uvec_final_d = self.get_initial_distribution().dot(Uvec_nd)
             Uvec_old_d = self.get_initial_distribution().dot(Uvec_old_nd)
             delta = linfDistance([np.array(Uvec_final_d)], [np.array(Uvec_old_d)], 'chebyshev')[0, 0]
 
-            gather_query.append(self.query_counter_)
-            gather_diff.append(abs( np.dot(self.get_Lambda(),Uvec_final_d) - np.dot(self.get_Lambda(), exact)))
+            #gather_query.append(self.query_counter_)
+            #gather_diff.append(abs( np.dot(self.get_Lambda(),Uvec_final_d) - np.dot(self.get_Lambda(), exact)))
 
             #temporary: just for approximation project to harmonize a stopping criteria regarding aproximate error
             if _error_exat_approx:

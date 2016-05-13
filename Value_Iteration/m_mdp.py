@@ -261,6 +261,7 @@ class VVMdp:
                 for s in range(self.nstates):
                     print pi[s],
                 print ""
+                print 'policy', pi
                 return U
 
     def calculate_advantages_dic(self, _matrix_nd, _IsInitialDistribution):

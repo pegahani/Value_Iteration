@@ -344,7 +344,7 @@ def reload(nomfich):
     return m
 
 
-def make_simulate_mdp_Yann(n_states, n_actions, _lambda, _r=None):
+def make_simulate_mdp_Yann(n_states, n_actions, _lambda, _r=None, d=None):
     """ Builds a random MDP.
         Each state has ceil(log(nstates)) successors.
         Reward vectors are permutations of [1,0,...,0]
@@ -360,11 +360,15 @@ def make_simulate_mdp_Yann(n_states, n_actions, _lambda, _r=None):
 
         _t.update( {(s,a,s2):p for s2,p in izip(next_states, probas/sum(probas) )  }  )
 
-    if _r is None:
+    if d is None and _r is None:
         # _r = {i:np.random.permutation([random.randint(1,5)]+[0]*(len(_lambda)-1)) for i in range(n_states)}
         _r = {i: np.random.permutation([1] + [0] * (len(_lambda) - 1)) for i in range(n_states)}
+        length = len(_lambda)
+    if _r is None and d is not None:
+        _r = {i: np.random.permutation([1] + [0] * (d - 1)) for i in range(n_states)}
+        length = d
 
-    assert len(_r[0]) == len(_lambda), "Reward vectors should have same length as lambda"
+    assert len(_r[0]) == length, "Reward vectors should have same length as lambda"
 
     return VVMdp(
             _startingstate=set(range(n_states)),

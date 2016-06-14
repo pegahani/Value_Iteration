@@ -27,7 +27,9 @@ class V_bar_search:
         return inequalities
 
     def __init__(self, _mdp, _V_bar, lam_random):
+
         self.Lambda_ineqalities = self.generate_inequalities(_mdp.d)
+
         self.V_bar_list_d = _V_bar
         self.lam_random = lam_random
         self.query_counter_ = 0
@@ -57,7 +59,6 @@ class V_bar_search:
 
         self.prob.linear_constraints.add(lin_expr=constr, senses="E" * len(constr), rhs=rhs)
         self.prob.write("show-Ldominance.lp")
-
 
     #******************functions related to comparisons***********
     def pareto_comparison(self, a, b):

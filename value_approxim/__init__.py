@@ -18,7 +18,7 @@ import V_bar_search
 import V_bar_search_mine
 #-------------------------------------------------
 
-sys.path.insert(0, '/Users/pegah/Pycharm/Value_Iteration')
+sys.path.insert(0, "/Users/fl/flhome/1recherche/LN/corpus/etudiants/Pegah/code/Value_Iterationghub/Value_Iteration")
 import m_mdp
 
 ftype = np.float32
